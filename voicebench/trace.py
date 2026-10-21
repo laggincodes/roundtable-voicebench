@@ -19,12 +19,17 @@ class TraceCollector:
         target_config: str = "baseline",
         session_id: Optional[str] = None,
         use_virtual_time: bool = True,
+        timing_mode: Optional[str] = None,
     ):
         self.scenario_id = scenario_id
         self.target_type = target_type
         self.target_config = target_config
         self.session_id = session_id or str(uuid.uuid4())
         self.use_virtual_time = use_virtual_time
+        if timing_mode:
+            self.timing_mode = timing_mode
+        else:
+            self.timing_mode = "virtual_simulation" if use_virtual_time else "observed_wall_clock"
         self._start_time_monotonic = time.monotonic()
         self._virtual_clock_ms = 0.0
         self._events: List[TraceEvent] = []
@@ -83,4 +88,5 @@ class TraceCollector:
             target_type=self.target_type,
             target_config=self.target_config,
             events=list(self._events),
+            timing_mode=self.timing_mode,
         )

@@ -104,7 +104,7 @@ class AdapterCapabilities:
     supports_barge_in: bool = False
     supports_tool_calls: bool = False
     supports_multi_agent: bool = True
-    timing_mode: str = "virtual_simulation"  # "virtual_simulation" or "observed_wall_clock"
+    timing_mode: str = "virtual_simulation"  # "virtual_simulation", "observed_wall_clock", or "target_reported_call_relative"
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -138,6 +138,7 @@ class ConversationTrace:
     target_type: str
     target_config: str
     events: List[TraceEvent] = field(default_factory=list)
+    timing_mode: str = "virtual_simulation"
 
     def add_event(self, event: TraceEvent) -> None:
         self.events.append(event)
@@ -160,6 +161,7 @@ class ConversationTrace:
             "session_id": self.session_id,
             "target_type": self.target_type,
             "target_config": self.target_config,
+            "timing_mode": self.timing_mode,
             "events": [e.to_dict() for e in self.events],
         }
 

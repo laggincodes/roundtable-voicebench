@@ -69,9 +69,9 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
             supports_text_input=True,
             supports_audio_input=False,
             supports_barge_in=False,  # REST transcript details do not provide sub-second audio energy cancellation timestamps
-            supports_tool_calls=True,
+            supports_tool_calls=True,  # Extracted from transcript tool_calls and tool_results
             supports_multi_agent=False,  # Native ConvAI sessions are single agent
-            timing_mode="observed_wall_clock",
+            timing_mode="target_reported_call_relative",
         )
 
     def initialize(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -155,6 +155,7 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
             target_config=self.agent_id or "default",
             session_id=conversation_id,
             use_virtual_time=False,
+            timing_mode="target_reported_call_relative",
         )
 
         if not self._api_key:
@@ -216,13 +217,86 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                 msg = item.get("message", "")
                 time_secs = item.get("time_in_call_secs", 0.0)
                 source_ts_ms = round(float(time_secs) * 1000.0, 2)
+                turn_idx = idx + 1
 
+                # 1. Parse tool_calls if present
+                tool_calls = item.get("tool_calls", [])
+                if isinstance(tool_calls, list):
+                    for tc in tool_calls:
+                        if isinstance(tc, dict):
+                            t_name = tc.get("tool_name", "")
+                            raw_args = tc.get("params_as_json", {})
+                            parsed_args = raw_args
+                            if isinstance(raw_args, str):
+                                try:
+                                    parsed_args = json.loads(raw_args)
+                                except Exception:
+                                    parsed_args = {"_raw": raw_args}
+                            collector.record_event(
+                                event_type=EventType.TOOL_CALL,
+                                speaker_id=self.agent_id or "agent",
+                                payload={
+                                    "tool": t_name,
+                                    "args": parsed_args,
+                                    "request_id": tc.get("request_id"),
+                                },
+                                turn_index=turn_idx,
+                                timestamp_ms=source_ts_ms,
+                                source_timestamp_ms=source_ts_ms,
+                                is_simulated=False,
+                                event_provenance="target_reported",
+                                metadata={
+                                    "tool_has_been_called": tc.get("tool_has_been_called", True),
+                                    "request_id": tc.get("request_id"),
+                                    "call_relative_secs": time_secs,
+                                },
+                            )
+
+                # 2. Parse tool_results if present
+                tool_results = item.get("tool_results", [])
+                if isinstance(tool_results, list):
+                    for tr in tool_results:
+                        if isinstance(tr, dict):
+                            t_name = tr.get("tool_name", "")
+                            is_err = bool(tr.get("is_error", False))
+                            res_val = tr.get("result_value")
+                            parsed_res = res_val
+                            if isinstance(res_val, str) and res_val.strip().startswith(("{", "[")):
+                                try:
+                                    parsed_res = json.loads(res_val)
+                                except Exception:
+                                    parsed_res = res_val
+                            raw_err = tr.get("raw_error_message")
+                            collector.record_event(
+                                event_type=EventType.TOOL_RESULT,
+                                speaker_id=self.agent_id or "agent",
+                                payload={
+                                    "tool": t_name,
+                                    "result": parsed_res,
+                                    "is_error": is_err,
+                                    "error": raw_err,
+                                    "request_id": tr.get("request_id"),
+                                },
+                                turn_index=turn_idx,
+                                timestamp_ms=source_ts_ms,
+                                source_timestamp_ms=source_ts_ms,
+                                is_simulated=False,
+                                event_provenance="target_reported",
+                                metadata={
+                                    "is_error": is_err,
+                                    "error_type": tr.get("error_type"),
+                                    "request_id": tr.get("request_id"),
+                                    "call_relative_secs": time_secs,
+                                },
+                            )
+
+                # 3. Parse speech transcript message
                 if role == "agent":
                     collector.record_event(
                         event_type=EventType.TRANSCRIPT_FINAL,
                         speaker_id=self.agent_id or "agent",
                         payload=msg,
-                        turn_index=idx + 1,
+                        turn_index=turn_idx,
                         timestamp_ms=source_ts_ms,
                         source_timestamp_ms=source_ts_ms,
                         is_simulated=False,
@@ -234,7 +308,7 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                         event_type=EventType.USER_INPUT,
                         speaker_id="human_user",
                         payload=msg,
-                        turn_index=idx + 1,
+                        turn_index=turn_idx,
                         timestamp_ms=source_ts_ms,
                         source_timestamp_ms=source_ts_ms,
                         is_simulated=False,
@@ -246,14 +320,15 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                         event_type=EventType.SPEECH_CHUNK,
                         speaker_id=role,
                         payload=msg,
-                        turn_index=idx + 1,
+                        turn_index=turn_idx,
                         timestamp_ms=source_ts_ms,
                         source_timestamp_ms=source_ts_ms,
                         is_simulated=False,
                         event_provenance="target_reported",
+                        metadata={"time_in_call_secs": time_secs},
                     )
 
-            # Record session end
+            # Record session end with client-observed REST fetch latency
             collector.record_event(
                 event_type=EventType.SESSION_END,
                 payload={
@@ -263,6 +338,9 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                 },
                 is_simulated=False,
                 event_provenance="client_observed",
+                metadata={
+                    "note": "fetch_latency_ms measures client-observed HTTP GET request elapsed time, not conversational latency.",
+                },
             )
 
         except urllib.error.HTTPError as e:
@@ -314,6 +392,7 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
             target_type=self.target_type,
             target_config=self.agent_id or "unconfigured",
             use_virtual_time=False,
+            timing_mode="target_reported_call_relative",
         )
 
         # 1. Compatibility check

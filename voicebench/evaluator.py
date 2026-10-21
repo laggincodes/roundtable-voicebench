@@ -35,8 +35,29 @@ class Evaluator:
         run_id: str = "",
         target_type: str = "local_mock",
         target_config: str = "baseline",
+        timing_mode: Optional[str] = None,
     ) -> ScenarioResult:
-        """Evaluate a scenario against a captured trace."""
+        """Evaluate a scenario against a captured trace and preserve resolved timing mode."""
+        res = self._evaluate_internal(
+            scenario=scenario,
+            trace=trace,
+            run_id=run_id,
+            target_type=target_type,
+            target_config=target_config,
+        )
+        resolved_timing = timing_mode or (trace.timing_mode if trace else "virtual_simulation")
+        res.timing_mode = resolved_timing
+        return res
+
+    def _evaluate_internal(
+        self,
+        scenario: Scenario,
+        trace: Optional[ConversationTrace],
+        run_id: str = "",
+        target_type: str = "local_mock",
+        target_config: str = "baseline",
+    ) -> ScenarioResult:
+        """Internal deterministic evaluation logic."""
         timestamp_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         # 1. Check if scenario was never run
@@ -485,6 +506,38 @@ class Evaluator:
                             timestamp_utc=timestamp_utc,
                             software_version=self.software_version,
                         )
+
+            # Check if tool result reported an execution error
+            matching_tool_results = [
+                tr for tr in trace.events
+                if tr.event_type == EventType.TOOL_RESULT and isinstance(tr.payload, dict) and tr.payload.get("tool") == expectations.required_tool_call
+            ]
+            if matching_tool_results:
+                errored = [tr for tr in matching_tool_results if tr.payload.get("is_error")]
+                if errored:
+                    err_tr = errored[0]
+                    err_detail = err_tr.payload.get("error") or err_tr.payload.get("result") or "Tool execution error"
+                    return ScenarioResult(
+                        scenario_id=scenario.id,
+                        scenario_name=scenario.name,
+                        status=TestStatus.FAIL,
+                        failure_category=FailureCategory.FAIL_TOOL.value,
+                        reason=f"Tool execution returned an error for '{expectations.required_tool_call}': {err_detail}",
+                        evidence=Evidence(
+                            turn_index=err_tr.turn_index,
+                            timestamp_ms=err_tr.timestamp_ms,
+                            speaker_id=err_tr.speaker_id,
+                            event_type="TOOL_RESULT_ERROR",
+                            quote_or_payload=err_tr.payload,
+                            notes="Tool invocation failed execution during conversation.",
+                        ),
+                        metrics=metrics,
+                        target_type=target_type,
+                        target_config=target_config,
+                        run_id=run_id,
+                        timestamp_utc=timestamp_utc,
+                        software_version=self.software_version,
+                    )
 
             # Check numeric grounding in spoken text
             if expectations.expected_numeric_grounding:

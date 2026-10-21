@@ -119,7 +119,7 @@ Peer teams building real-time multi-agent systems can integrate with VoiceBench 
 - **Measurement Integrity:**
   - Client observed latency is tracked monotonically and labeled `event_provenance="client_observed"`.
   - Target internal latency is preserved separately in `source_timestamp_ms` (`event_provenance="target_reported"`).
-  - Incompatible timing modes (`virtual_simulation` vs `observed_wall_clock`) are rejected from metric deltas to prevent dishonest comparisons.
+  - Incompatible timing modes (`virtual_simulation`, `observed_wall_clock`, `target_reported_call_relative`) are rejected from metric deltas in the regression comparator to prevent dishonest comparisons.
 - **Resilience:** Unreachable ports, connection timeouts, HTTP 500, and malformed JSON are cleanly caught as `TRANSPORT_ERROR` events and evaluated as `INCONCLUSIVE` (`FAIL_INFRA`).
 
 See [docs/ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md) for full endpoint specifications, payload schemas, and integration checklists.
@@ -133,10 +133,13 @@ VoiceBench includes a dedicated adapter (`ElevenLabsConvAIAdapter`) connecting d
 ### Capability Support & Honest Boundaries:
 - **Supported:**
   - Expert persona and boundary verification (`SCEN-ROLE-03`)
-  - Tool invocation schema validation and fact grounding (`SCEN-TOOL-05`)
+  - Tool invocation schema validation, execution error checking, and fact grounding (`SCEN-TOOL-05`)
   - Post-detour debate topic recovery (`SCEN-REC-04`)
+- **Timing Mode & Provenance (`target_reported_call_relative`):**
+  - Transcript turns carry target-reported, call-relative timing (`time_in_call_secs`), never conflated with client-observed wall-clock latency.
+  - Client REST fetch latency (`fetch_latency_ms`) is tracked separately via monotonic clock and tagged `client_observed`.
 - **Explicitly Rejected with Inconclusive Verdict:**
-  - Sub-second audio energy barge-in yield measurement (`SCEN-INT-02`): REST conversation details provide second-level message timestamps, not sub-second audio energy cancellation timestamps. Claiming barge-in yield measurement without live bidirectional audio WebSocket instrumentation would be dishonest.
+  - Sub-second audio energy barge-in yield measurement (`SCEN-INT-02`): REST conversation details provide call-relative message timestamps, not sub-second audio energy cancellation timestamps. Claiming barge-in yield measurement without live bidirectional audio WebSocket instrumentation would be dishonest.
   - Multi-speaker floor collision measurement (`SCEN-COORD-06`): ElevenLabs ConvAI sessions are natively single-agent.
 
 ### Configuration on Windows PowerShell:
@@ -170,7 +173,7 @@ VoiceBench is backed by a comprehensive automated test suite verifying scenario 
 python -m pytest tests/ -v
 ```
 
-**Results:** `56 passed in ~7.5s` (100% pass rate, 0 warnings).
+**Results:** `63 passed in ~10.7s` (100% pass rate, 0 warnings).
 
 ---
 

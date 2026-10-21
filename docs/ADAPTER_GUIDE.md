@@ -191,7 +191,7 @@ When integrating an external roundtable implementation into VoiceBench:
 
 ## 7. ElevenLabs Conversational AI Adapter (`ElevenLabsConvAIAdapter`)
 
-VoiceBench includes a dedicated adapter for evaluating agents built on the official **ElevenLabs Conversational AI** platform.
+VoiceBench includes a dedicated adapter for evaluating agents built on the official **ElevenLabs Conversational AI** platform (`/v1/convai`).
 
 ### Supported Capabilities
 ```python
@@ -199,9 +199,9 @@ AdapterCapabilities(
     supports_text_input=True,
     supports_audio_input=False,
     supports_barge_in=False,        # REST conversation details do not provide sub-second audio energy cancellation timestamps
-    supports_tool_calls=True,       # Tracked in session transcript
+    supports_tool_calls=True,       # Tracked in session transcript tool_calls and tool_results
     supports_multi_agent=False,     # Native ConvAI sessions are single agent
-    timing_mode="observed_wall_clock",
+    timing_mode="target_reported_call_relative",
 )
 ```
 
@@ -209,6 +209,29 @@ AdapterCapabilities(
 - **Agent Verification:** `GET https://api.elevenlabs.io/v1/convai/agents/{agent_id}`
 - **Conversation Details:** `GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}`
 - **Header:** `xi-api-key: <api_key>`
+
+### Timing Semantics & Provenance Integrity
+VoiceBench enforces rigorous provenance tracking for all ElevenLabs ConvAI data:
+1. **Target-Reported Call-Relative Timing (`target_reported_call_relative`):**
+   - The ElevenLabs REST API reports `time_in_call_secs` for each transcript turn, representing elapsed seconds since the conversation session began on ElevenLabs infrastructure.
+   - VoiceBench converts this to milliseconds (`source_timestamp_ms = time_in_call_secs * 1000.0`), tagged with `event_provenance="target_reported"` and `is_simulated=False`.
+   - VoiceBench **never** presents target-reported call-relative offsets as client-observed wall-clock latency.
+2. **Client-Observed Fetch Latency (`fetch_latency_ms`):**
+   - Measured locally via Python's `time.monotonic()` strictly around the HTTPS GET request to the `/v1/convai/conversations/{conversation_id}` endpoint.
+   - Recorded in `SESSION_END.payload["fetch_latency_ms"]` with `event_provenance="client_observed"`.
+   - Annotated with diagnostic notes explaining that this measures API payload retrieval time, NOT conversational turnaround or audio playback latency.
+3. **Cross-Timing-Mode Incompatibility Refusal:**
+   - In the regression comparator, `target_reported_call_relative` runs cannot be compared against `virtual_simulation` or `observed_wall_clock` runs for timing metrics.
+   - The comparator sets `timing_modes_compatible = False`, suppresses misleading numerical timing deltas (`delta = None`), and attaches an explicit diagnostic note. Non-timing metrics (e.g. `turn_count`) continue to compare normally.
+
+### Tool-Call Schema & Evaluation Support
+The ElevenLabs adapter ingests and parses native tool call structures from `/v1/convai/conversations/{conversation_id}`:
+- **Tool Invocations (`transcript[].tool_calls`):**
+  - Extracts `tool_name` and decodes `params_as_json`. Emits `EventType.TOOL_CALL`.
+  - Malformed JSON strings are captured under `payload["args"]["_raw"]`, enabling schema mismatch detection.
+- **Tool Results (`transcript[].tool_results`):**
+  - Extracts `result_value`, `is_error`, `error_type`, and `raw_error_message`. Emits `EventType.TOOL_RESULT`.
+  - If a tool result has `is_error: True`, the VoiceBench evaluator flags a definitive `FAIL_TOOL` defect with the corresponding error evidence.
 
 ### Configuration on Windows PowerShell
 Set environment variables securely in your terminal session (never commit keys to Git):
@@ -236,7 +259,7 @@ python -m voicebench.cli run \
 | Scenario | Capability Required | Supported by ElevenLabs REST? | VoiceBench Behavior |
 | :--- | :--- | :---: | :--- |
 | `SCEN-ROLE-03` | Persona consistency & boundaries | **YES** | Evaluates response text against grounded boundaries. |
-| `SCEN-TOOL-05` | Tool invocation & numeric grounding | **YES** | Evaluates tool triggering from conversation history. |
+| `SCEN-TOOL-05` | Tool invocation & numeric grounding | **YES** | Evaluates tool triggering, arguments, and result errors. |
 | `SCEN-INT-02` | Sub-second audio barge-in yield | **NO** | Rejects with `UnsupportedCapabilityError` (produces `INCONCLUSIVE`). |
 | `SCEN-COORD-06`| Multi-agent floor coordination | **NO** | Rejects with `UnsupportedCapabilityError` (produces `INCONCLUSIVE`). |
 
@@ -245,4 +268,4 @@ Developers without paid ElevenLabs accounts can verify the adapter logic locally
 ```bash
 python -m pytest tests/test_elevenlabs_adapter.py -v
 ```
-All 11 tests execute completely offline without network requests or API costs.
+All 16 tests execute completely offline without network requests, external dependencies, or API costs.

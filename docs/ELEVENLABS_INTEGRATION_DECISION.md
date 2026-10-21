@@ -12,7 +12,7 @@
 The official ElevenLabs API documentation was reviewed on **2026-10-21**:
 
 1. **Conversational AI API Overview & Conversation Details:**
-   - URL: `https://elevenlabs.io/docs/conversational-ai/api-reference`
+   - URL: `https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get`
    - Endpoint: `GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}`
    - Header: `xi-api-key: <api_key>`
    - Response Schema:
@@ -24,7 +24,9 @@ The official ElevenLabs API documentation was reviewed on **2026-10-21**:
      - `transcript`: array of objects, each containing:
        - `role`: string (`"user"` or `"agent"`)
        - `message`: string (spoken transcript content)
-       - `time_in_call_secs`: number (timestamp offset relative to call start)
+       - `time_in_call_secs`: number (call-relative timestamp offset in seconds from session initiation)
+       - `tool_calls`: array of `{request_id, tool_name, params_as_json, tool_has_been_called}`
+       - `tool_results`: array of `{request_id, tool_name, result_value, is_error, error_type, raw_error_message}`
 
 2. **Agent Configuration & Verification:**
    - Endpoint: `GET https://api.elevenlabs.io/v1/convai/agents/{agent_id}`
@@ -53,9 +55,14 @@ We implement `ElevenLabsConvAIAdapter` (`voicebench.adapters.elevenlabs`), subcl
 - `supports_text_input = True`
 - `supports_audio_input = False` (unless audio streaming pipeline is attached)
 - `supports_barge_in = False` (REST conversation details do not provide sub-second audio energy cancellation timestamps)
-- `supports_tool_calls = True` (tool executions tracked in session metadata)
+- `supports_tool_calls = True` (tool executions and results tracked in session transcript)
 - `supports_multi_agent = False` (native ElevenLabs ConvAI agents are single-agent; multi-agent roundtables require orchestrator routing)
-- `timing_mode = "observed_wall_clock"` (or target-reported from `time_in_call_secs`)
+- `timing_mode = "target_reported_call_relative"`
+
+### Timing Semantics & Measurement Integrity:
+- **`target_reported_call_relative`:** Transcript `time_in_call_secs` is target-reported elapsed time from session start. Serialized as `timestamp_ms = time_in_call_secs * 1000.0` with `event_provenance="target_reported"`. It is NOT client-observed wall-clock latency.
+- **`fetch_latency_ms`:** Client REST elapsed duration measured via `time.monotonic()` for HTTPS GET payload retrieval, labeled `event_provenance="client_observed"`.
+- **Incompatible Timing Refusal:** Regression comparator refuses to compute timing deltas between `target_reported_call_relative` and `virtual_simulation` / `observed_wall_clock`, setting `delta=None` and explaining incompatibility.
 
 ### Observable Evidence vs. Unsupported Scenarios:
 | Scenario / Feature | ElevenLabs REST Support | VoiceBench Handling | Rationale |

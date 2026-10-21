@@ -45,6 +45,7 @@ class SuiteRunner:
                     run_id=current_run_id,
                     target_type=self.adapter.target_type,
                     target_config=self.adapter.target_config,
+                    timing_mode=self.adapter.get_capabilities().timing_mode,
                 )
                 results.append(result)
 
@@ -71,4 +72,5 @@ class SuiteRunner:
             not_run=not_run,
             results=results,
             software_version=self.evaluator.software_version,
+            timing_mode=self.adapter.get_capabilities().timing_mode,
         )

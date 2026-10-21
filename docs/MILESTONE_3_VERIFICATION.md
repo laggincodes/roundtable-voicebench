@@ -4,16 +4,18 @@
 **Auditor:** Senior Open-Source Hackathon Lead  
 **Working Directory:** `C:\Users\Yatha\.gemini\antigravity\scratch\voicebench`  
 **Milestone:** Milestone 3 (ElevenLabs Integration & Safe GitHub Readiness)  
+**Measurement Integrity Audit Status:** **AUDITED & CORRECTED**
 **Overall Verdict:** **PASS — LIVE TEST BLOCKED**
 
 ---
 
 ## 1. Executive Summary & Final Verdict
 
-VoiceBench has implemented an authentic, zero-fabrication integration for the **ElevenLabs Conversational AI** platform, backed by deterministic offline test fixtures, strict capability boundaries, credential redaction, and an audited GitHub publishing readiness plan.
+VoiceBench has implemented an authentic, zero-fabrication integration for the **ElevenLabs Conversational AI** platform, backed by deterministic offline test fixtures, strict capability boundaries, credential redaction, audited timing semantics, and an audited GitHub publishing readiness plan.
 
 ### Verdict Rationale:
-- **Offline Implementation & Test Suite:** **PASS** (56/56 automated tests passing with zero warnings).
+- **Offline Implementation & Test Suite:** **PASS** (63/63 automated tests passing with zero warnings).
+- **Measurement Integrity Audit:** **PASS** (Corrected timing mode to `target_reported_call_relative`; separated client REST `fetch_latency_ms` from target-reported transcript timing; enforced cross-mode diff refusal in regression comparator; implemented tool-call and tool-result error evaluation).
 - **Live Smoke Test:** **BLOCKED** due to missing `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` credentials in the local environment. (As mandated by our integrity policy, live success is never simulated or fabricated).
 - **GitHub Repository Inspection:** **PASS** (Remote repository inspected via read-only GitHub API; unrelated history detected; safe reconciliation plan prepared without modifying remote).
 
@@ -35,25 +37,44 @@ VoiceBench has implemented an authentic, zero-fabrication integration for the **
 ### Gate 1: Official API Path & Evidence Boundaries
 - Researched official ElevenLabs Conversational AI REST APIs (`/v1/convai/agents/{agent_id}` and `/v1/convai/conversations/{conversation_id}`).
 - Recorded in [`docs/ELEVENLABS_INTEGRATION_DECISION.md`](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ELEVENLABS_INTEGRATION_DECISION.md).
-- Honest Boundary Decision: REST conversation details provide second-level timestamps (`time_in_call_secs`), not sub-second audio energy cancellation timestamps. Scenarios requiring audio barge-in (`SCEN-INT-02`) or multi-speaker collision (`SCEN-COORD-06`) are explicitly declared unsupported and rejected.
+- Honest Boundary Decision: REST conversation details provide call-relative seconds (`time_in_call_secs`), not sub-second audio energy cancellation timestamps. Scenarios requiring audio barge-in (`SCEN-INT-02`) or multi-speaker collision (`SCEN-COORD-06`) are explicitly declared unsupported and rejected.
 
-### Gate 2: Implementation of `ElevenLabsConvAIAdapter`
+### Gate 2: Implementation of `ElevenLabsConvAIAdapter` & Measurement Integrity
 - Implemented in [`voicebench/adapters/elevenlabs.py`](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/voicebench/adapters/elevenlabs.py).
 - Conforms to abstract `TargetAdapter` interface and lifecycle (`initialize`, `execute_scenario`, `teardown`).
-- Declares explicit `AdapterCapabilities` (`timing_mode="observed_wall_clock"`).
+- **Timing Provenance Audit & Correction:**
+  - `timing_mode` declared strictly as `"target_reported_call_relative"`.
+  - Transcript timestamps (`time_in_call_secs`) tagged with `event_provenance="target_reported"` and `is_simulated=False`.
+  - Client REST fetch duration (`fetch_latency_ms`) tracked via `time.monotonic()` strictly around the HTTPS GET request and tagged with `event_provenance="client_observed"` in `SESSION_END.payload`, documented as transport latency (not conversation turn latency).
+  - Comparator enforces cross-timing-mode incompatibility refusal (`timing_modes_compatible = False`, `delta = None`).
+- **Tool-Call Evaluation:**
+  - Ingests `transcript[].tool_calls` (`tool_name`, `params_as_json`) and `transcript[].tool_results` (`result_value`, `is_error`, `raw_error_message`).
+  - Evaluator flags `FAIL_TOOL` if tool results contain errors (`is_error: True`) or arguments are malformed.
 - Automatically redacts API keys from representations, exceptions, and trace logs.
-- Captures monotonic wall-clock timing for client requests and extracts target-reported source timestamps.
 - Maps all network, HTTP (401, 403, 404, 429, 500), and malformed response errors to `INCONCLUSIVE` (`FAIL_INFRA`).
 
 ### Gate 3: Deterministic Offline Testing
-- Implemented `tests/test_elevenlabs_adapter.py` with 11 targeted test cases.
+- Implemented `tests/test_elevenlabs_adapter.py` with 16 targeted test cases covering:
+  - Adapter capability declaration (`timing_mode == "target_reported_call_relative"`)
+  - Unsupported scenario rejection (`SCEN-INT-02`, `SCEN-COORD-06`)
+  - Credential redaction in exceptions and representations
+  - Compliant fetch and evaluation on `SCEN-ROLE-03`
+  - Valid tool call execution (`SCEN-TOOL-05`)
+  - Missing tool call detection (`FAIL_TOOL`)
+  - Tool execution result error detection (`FAIL_TOOL`)
+  - Malformed tool arguments schema mismatch detection (`FAIL_TOOL`)
+  - Timing provenance distinction between call-relative timestamps and client fetch latency
+  - Comparator cross-timing-mode incompatibility refusal
+  - Unmeasured metrics remaining `null` rather than zero
+  - HTTP error mapping: 401, 429, 500, malformed JSON, missing transcript array
+  - Unconfigured credentials safety handling
 - Utilizes an offline mock HTTP server (`MockElevenLabsServerThread`) simulating official ElevenLabs responses.
 - **Automated Test Results:**
   ```text
   python -m pytest tests/ -v
-  ============================= 56 passed in 7.55s ==============================
+  ============================= 63 passed in 10.72s ==============================
   ```
-  - 45 existing core tests + 11 new ElevenLabs adapter tests.
+  - 47 existing core tests + 16 new ElevenLabs adapter tests.
   - Zero warnings, zero failures.
   - Completely offline (zero real API calls, zero cost).
 
@@ -126,9 +147,11 @@ git merge origin/main --allow-unrelated-histories -m "chore(repo): reconcile rem
 
 | Verification Category | Status |
 | :--- | :---: |
-| Complete Test Suite (56/56 tests passing) | **PASS** |
+| Complete Test Suite (63/63 tests passing) | **PASS** |
+| Measurement Integrity & Timing Mode Audit | **PASS** |
 | Dedicated ElevenLabs Adapter Contract | **PASS** |
 | Capability Boundaries & Honest Rejections | **PASS** |
+| Tool-Call & Tool-Result Error Evaluation | **PASS** |
 | Credential Redaction & Security | **PASS** |
 | Offline Mock Test Fixtures | **PASS** |
 | Live Smoke Test (Awaiting credentials) | **BLOCKED (Documented)** |

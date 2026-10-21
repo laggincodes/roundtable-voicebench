@@ -13,6 +13,7 @@ from voicebench.models import (
     EventType,
     FailureCategory,
     ScenarioExpectations,
+    ScenarioResult,
     SuiteResult,
     TestStatus,
 )
@@ -40,7 +41,7 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"detail": {"status": "unauthorized", "message": "Invalid API key"}}')
             return
 
-        # 2. Mode simulation
+        # 2. Simulated failure modes
         if mode == "rate_limit":
             self.send_response(429)
             self.send_header("Content-Type", "application/json")
@@ -80,6 +81,164 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
                 },
             }
             resp_bytes = json.dumps(agent_payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+            return
+
+        # Tool Call Simulation Modes
+        if mode == "tool_call_valid":
+            conv_payload = {
+                "agent_id": "elena_vance",
+                "conversation_id": "conv_tool_valid",
+                "status": "done",
+                "metadata": {"start_time_unix_secs": 1729500000, "call_duration_secs": 10},
+                "transcript": [
+                    {
+                        "role": "user",
+                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "time_in_call_secs": 1.0,
+                    },
+                    {
+                        "role": "agent",
+                        "message": "Checking market price now.",
+                        "time_in_call_secs": 2.2,
+                        "tool_calls": [
+                            {
+                                "request_id": "req_ercot_01",
+                                "tool_name": "fetch_market_price",
+                                "params_as_json": '{"asset": "electricity", "region": "ERCOT"}',
+                                "tool_has_been_called": True,
+                            }
+                        ],
+                        "tool_results": [
+                            {
+                                "request_id": "req_ercot_01",
+                                "tool_name": "fetch_market_price",
+                                "result_value": '{"price_mwh": 34.50, "currency": "USD"}',
+                                "is_error": False,
+                            }
+                        ],
+                    },
+                    {
+                        "role": "agent",
+                        "message": "The wholesale price in ERCOT is 34.50 USD per megawatt-hour.",
+                        "time_in_call_secs": 3.8,
+                    },
+                ],
+            }
+            resp_bytes = json.dumps(conv_payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+            return
+
+        if mode == "tool_call_missing":
+            conv_payload = {
+                "agent_id": "elena_vance",
+                "conversation_id": "conv_tool_missing",
+                "status": "done",
+                "metadata": {"start_time_unix_secs": 1729500000, "call_duration_secs": 8},
+                "transcript": [
+                    {
+                        "role": "user",
+                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "time_in_call_secs": 1.0,
+                    },
+                    {
+                        "role": "agent",
+                        "message": "I think the wholesale price in ERCOT is about 34.50 dollars without checking.",
+                        "time_in_call_secs": 2.5,
+                        "tool_calls": [],
+                        "tool_results": [],
+                    },
+                ],
+            }
+            resp_bytes = json.dumps(conv_payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+            return
+
+        if mode == "tool_call_error":
+            conv_payload = {
+                "agent_id": "elena_vance",
+                "conversation_id": "conv_tool_error",
+                "status": "done",
+                "metadata": {"start_time_unix_secs": 1729500000, "call_duration_secs": 8},
+                "transcript": [
+                    {
+                        "role": "user",
+                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "time_in_call_secs": 1.0,
+                    },
+                    {
+                        "role": "agent",
+                        "message": "Checking the ERCOT spot price right now.",
+                        "time_in_call_secs": 2.0,
+                        "tool_calls": [
+                            {
+                                "request_id": "req_err_01",
+                                "tool_name": "fetch_market_price",
+                                "params_as_json": '{"asset": "electricity", "region": "ERCOT"}',
+                                "tool_has_been_called": True,
+                            }
+                        ],
+                        "tool_results": [
+                            {
+                                "request_id": "req_err_01",
+                                "tool_name": "fetch_market_price",
+                                "result_value": None,
+                                "is_error": True,
+                                "error_type": "TimeoutError",
+                                "raw_error_message": "Grid connection timed out after 5000ms",
+                            }
+                        ],
+                    },
+                ],
+            }
+            resp_bytes = json.dumps(conv_payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+            return
+
+        if mode == "tool_call_malformed_args":
+            conv_payload = {
+                "agent_id": "elena_vance",
+                "conversation_id": "conv_tool_malformed",
+                "status": "done",
+                "metadata": {"start_time_unix_secs": 1729500000, "call_duration_secs": 8},
+                "transcript": [
+                    {
+                        "role": "user",
+                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "time_in_call_secs": 1.0,
+                    },
+                    {
+                        "role": "agent",
+                        "message": "Checking the ERCOT spot price right now.",
+                        "time_in_call_secs": 2.0,
+                        "tool_calls": [
+                            {
+                                "request_id": "req_corrupt_01",
+                                "tool_name": "fetch_market_price",
+                                "params_as_json": "{corrupted_not_json: true",
+                                "tool_has_been_called": True,
+                            }
+                        ],
+                    },
+                ],
+            }
+            resp_bytes = json.dumps(conv_payload).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp_bytes)))
@@ -163,7 +322,7 @@ def mock_elevenlabs_server():
 
 
 def test_adapter_capabilities_declaration():
-    """Verify capabilities accurately declare supported and unsupported capabilities."""
+    """Verify capabilities accurately declare supported and unsupported capabilities and timing mode."""
     adapter = ElevenLabsConvAIAdapter(api_key="test_key", agent_id="agent_123")
     caps = adapter.get_capabilities()
 
@@ -172,7 +331,8 @@ def test_adapter_capabilities_declaration():
     assert caps.supports_barge_in is False
     assert caps.supports_multi_agent is False
     assert caps.supports_tool_calls is True
-    assert caps.timing_mode == "observed_wall_clock"
+    # Audit fix: Timing mode is explicitly target_reported_call_relative
+    assert caps.timing_mode == "target_reported_call_relative"
 
 
 def test_adapter_rejects_bargein_scenario():
@@ -237,6 +397,7 @@ def test_adapter_compliant_fetch_and_evaluation(mock_elevenlabs_server):
     # 2. Test fetch_conversation_trace
     trace = adapter.fetch_conversation_trace("conv_test_session_001")
     assert trace.target_type == "elevenlabs_convai"
+    assert trace.timing_mode == "target_reported_call_relative"
     assert len(trace.events) >= 3
 
     # Check transcript events
@@ -250,18 +411,237 @@ def test_adapter_compliant_fetch_and_evaluation(mock_elevenlabs_server):
 
     # 3. Evaluate trace with Evaluator against role consistency scenario
     scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
-    # Adapt expected speaker for single-agent evaluation
     scenario.expectations.primary_speaker_id = "test_agent_dr_aris"
     scenario.expectations.required_keywords = ["borehole", "pressure"]
 
     evaluator = Evaluator()
     result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="dr_aris")
     assert result.status == TestStatus.PASS
+    assert result.timing_mode == "target_reported_call_relative"
+
+
+# --- Tool Call Evaluation Tests ---
+
+
+def test_elevenlabs_adapter_tool_call_valid():
+    """Verify valid tool call and result extraction passes Evaluator tool assertions."""
+    server = MockElevenLabsServerThread(mode="tool_call_valid")
+    server.start()
+    try:
+        adapter = ElevenLabsConvAIAdapter(
+            api_key="valid_test_xi_key_secret_1234",
+            agent_id="elena_vance",
+            base_url=server.base_url,
+        )
+
+        trace = adapter.fetch_conversation_trace("conv_tool_valid")
+        tool_calls = trace.get_tool_calls()
+        assert len(tool_calls) == 1
+        assert tool_calls[0].payload["tool"] == "fetch_market_price"
+        assert tool_calls[0].payload["args"] == {"asset": "electricity", "region": "ERCOT"}
+        assert tool_calls[0].event_provenance == "target_reported"
+
+        tool_results = trace.get_events_by_type(EventType.TOOL_RESULT)
+        assert len(tool_results) == 1
+        assert tool_results[0].payload["tool"] == "fetch_market_price"
+        assert tool_results[0].payload["is_error"] is False
+
+        scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+        evaluator = Evaluator()
+        result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+        assert result.status == TestStatus.PASS
+        assert result.timing_mode == "target_reported_call_relative"
+    finally:
+        server.stop()
+
+
+def test_elevenlabs_adapter_tool_call_missing():
+    """Verify agent answering without calling required tool fails with FAIL_TOOL."""
+    server = MockElevenLabsServerThread(mode="tool_call_missing")
+    server.start()
+    try:
+        adapter = ElevenLabsConvAIAdapter(
+            api_key="valid_test_xi_key_secret_1234",
+            agent_id="elena_vance",
+            base_url=server.base_url,
+        )
+
+        trace = adapter.fetch_conversation_trace("conv_tool_missing")
+        assert len(trace.get_tool_calls()) == 0
+
+        scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+        evaluator = Evaluator()
+        result = evaluator.evaluate(scenario, trace)
+        assert result.status == TestStatus.FAIL
+        assert result.failure_category == FailureCategory.FAIL_TOOL.value
+        assert "was never called" in result.reason
+    finally:
+        server.stop()
+
+
+def test_elevenlabs_adapter_tool_call_result_error():
+    """Verify tool execution error in transcript fails with FAIL_TOOL."""
+    server = MockElevenLabsServerThread(mode="tool_call_error")
+    server.start()
+    try:
+        adapter = ElevenLabsConvAIAdapter(
+            api_key="valid_test_xi_key_secret_1234",
+            agent_id="elena_vance",
+            base_url=server.base_url,
+        )
+
+        trace = adapter.fetch_conversation_trace("conv_tool_error")
+        tool_results = trace.get_events_by_type(EventType.TOOL_RESULT)
+        assert len(tool_results) == 1
+        assert tool_results[0].payload["is_error"] is True
+
+        scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+        evaluator = Evaluator()
+        result = evaluator.evaluate(scenario, trace)
+        assert result.status == TestStatus.FAIL
+        assert result.failure_category == FailureCategory.FAIL_TOOL.value
+        assert "returned an error" in result.reason
+    finally:
+        server.stop()
+
+
+def test_elevenlabs_adapter_tool_call_malformed_args():
+    """Verify malformed JSON args are captured as raw payload and fail arg schema assertions."""
+    server = MockElevenLabsServerThread(mode="tool_call_malformed_args")
+    server.start()
+    try:
+        adapter = ElevenLabsConvAIAdapter(
+            api_key="valid_test_xi_key_secret_1234",
+            agent_id="elena_vance",
+            base_url=server.base_url,
+        )
+
+        trace = adapter.fetch_conversation_trace("conv_tool_malformed")
+        tool_calls = trace.get_tool_calls()
+        assert len(tool_calls) == 1
+        assert "_raw" in tool_calls[0].payload["args"]
+
+        scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+        evaluator = Evaluator()
+        result = evaluator.evaluate(scenario, trace)
+        assert result.status == TestStatus.FAIL
+        assert result.failure_category == FailureCategory.FAIL_TOOL.value
+        assert "parameter mismatch" in result.reason
+    finally:
+        server.stop()
+
+
+# --- Timing Provenance & Measurement Integrity Tests ---
+
+
+def test_elevenlabs_timing_provenance_and_fetch_duration(mock_elevenlabs_server):
+    """Verify call-relative target timestamps are distinguished from client-observed HTTP latency."""
+    adapter = ElevenLabsConvAIAdapter(
+        api_key="valid_test_xi_key_secret_1234",
+        agent_id="test_agent_dr_aris",
+        base_url=mock_elevenlabs_server.base_url,
+    )
+
+    trace = adapter.fetch_conversation_trace("conv_test_session_001")
+
+    # Transcript events have target_reported provenance and call_relative timing
+    transcript_ev = trace.get_transcripts()[0]
+    assert transcript_ev.event_provenance == "target_reported"
+    assert transcript_ev.is_simulated is False
+    assert transcript_ev.source_timestamp_ms == 3800.0
+
+    # Session end has client_observed provenance for HTTP fetch latency
+    session_ends = trace.get_events_by_type(EventType.SESSION_END)
+    assert len(session_ends) == 1
+    assert session_ends[0].event_provenance == "client_observed"
+    assert "fetch_latency_ms" in session_ends[0].payload
+    assert session_ends[0].payload["fetch_latency_ms"] >= 0.0
+    assert "not conversational latency" in session_ends[0].metadata["note"]
+
+
+def test_elevenlabs_comparator_incompatible_timing_modes():
+    """Verify comparator suppresses timing deltas across incompatible timing modes."""
+    # 1. Compare target_reported_call_relative against virtual_simulation
+    res_eleven = SuiteResult(
+        run_id="run-eleven",
+        target_type="elevenlabs_convai",
+        target_config="dr_aris",
+        timestamp_utc="2026-10-21T00:00:00Z",
+        total=1, passed=1, failed=0, inconclusive=0, not_run=0,
+        timing_mode="target_reported_call_relative",
+        results=[
+            ScenarioResult(
+                scenario_id="SCEN-ROLE-03",
+                scenario_name="Role consistency",
+                status=TestStatus.PASS,
+                reason="Passed",
+                metrics={"yield_latency_ms": 480.0, "turn_count": 1},
+                timing_mode="target_reported_call_relative",
+            )
+        ],
+    )
+
+    res_mock = SuiteResult(
+        run_id="run-mock",
+        target_type="local_mock",
+        target_config="baseline",
+        timestamp_utc="2026-10-21T00:01:00Z",
+        total=1, passed=1, failed=0, inconclusive=0, not_run=0,
+        timing_mode="virtual_simulation",
+        results=[
+            ScenarioResult(
+                scenario_id="SCEN-ROLE-03",
+                scenario_name="Role consistency",
+                status=TestStatus.PASS,
+                reason="Passed",
+                metrics={"yield_latency_ms": 320.0, "turn_count": 1},
+                timing_mode="virtual_simulation",
+            )
+        ],
+    )
+
+    report = compare_runs(res_mock, res_eleven)
+    assert report.timing_modes_compatible is False
+    assert "Incompatible timing modes" in report.timing_compatibility_note
+
+    # Non-timing metrics diff normally
+    turn_delta = next(m for m in report.scenario_diffs[0].metric_deltas if m.metric_name == "turn_count")
+    assert turn_delta.delta == 0
+
+    # Timing metrics have delta=None across incompatible modes
+    yield_delta = next(m for m in report.scenario_diffs[0].metric_deltas if m.metric_name == "yield_latency_ms")
+    assert yield_delta.delta is None
+    assert "Cannot diff timing" in yield_delta.notes
+
+
+def test_elevenlabs_missing_measurements_remain_null(mock_elevenlabs_server):
+    """Verify unmeasured metrics serialize to null in JSON, not zero."""
+    adapter = ElevenLabsConvAIAdapter(
+        api_key="valid_test_xi_key_secret_1234",
+        agent_id="test_agent_dr_aris",
+        base_url=mock_elevenlabs_server.base_url,
+    )
+
+    trace = adapter.fetch_conversation_trace("conv_test_session_001")
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai")
+
+    res_dict = result.to_dict()
+    assert res_dict["metrics"]["yield_latency_ms"] is None
+    assert res_dict["metrics"]["cross_talk_overlap_ms"] is None
+    assert res_dict["metrics"]["yield_latency_ms"] != 0.0
+
+    serialized = json.dumps(res_dict)
+    deserialized = json.loads(serialized)
+    assert deserialized["metrics"]["yield_latency_ms"] is None
+
+
+# --- Network & Error Handling Tests ---
 
 
 def test_adapter_authentication_failure(mock_elevenlabs_server):
     """Verify HTTP 401 produces INCONCLUSIVE with FAIL_INFRA."""
-    # Pass invalid key
     adapter = ElevenLabsConvAIAdapter(
         api_key="invalid_bad_key",
         agent_id="test_agent_dr_aris",
@@ -383,7 +763,6 @@ def test_adapter_missing_transcript_failure():
 def test_adapter_unconfigured_credentials_handling():
     """Verify running without credentials cleanly records TRANSPORT_ERROR and evaluates to INCONCLUSIVE."""
     adapter = ElevenLabsConvAIAdapter(api_key=None, agent_id=None)
-    # Manually ensure no env vars
     adapter._api_key = ""
 
     scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
