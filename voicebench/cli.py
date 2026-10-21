@@ -16,6 +16,7 @@ import sys
 from typing import List, Optional
 
 from voicebench.adapters.base import TargetAdapter
+from voicebench.adapters.elevenlabs import ElevenLabsConvAIAdapter
 from voicebench.adapters.http import GenericHttpAdapter
 from voicebench.adapters.mock import LocalMockAdapter
 from voicebench.comparator import (
@@ -74,13 +75,26 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--target", "-t",
         default="mock",
-        choices=["mock", "local_mock", "http", "generic_http"],
+        choices=["mock", "local_mock", "http", "generic_http", "elevenlabs", "elevenlabs_convai"],
         help="Target adapter type (default: mock)",
     )
     run_parser.add_argument(
         "--endpoint-url",
         default="http://localhost:8080/api/v1/roundtable/execute",
         help="Target endpoint URL when using HTTP adapter (default: http://localhost:8080/api/v1/roundtable/execute)",
+    )
+    run_parser.add_argument(
+        "--api-key",
+        help="ElevenLabs API key (or set ELEVENLABS_API_KEY environment variable)",
+    )
+    run_parser.add_argument(
+        "--agent-id",
+        help="ElevenLabs Agent ID (or set ELEVENLABS_AGENT_ID environment variable)",
+    )
+    run_parser.add_argument(
+        "--base-url",
+        default="https://api.elevenlabs.io",
+        help="Base URL for ElevenLabs API (default: https://api.elevenlabs.io)",
     )
     run_parser.add_argument(
         "--target-config", "-c",
@@ -169,6 +183,9 @@ def cmd_run(
     suite_path: str,
     target_type: str = "mock",
     endpoint_url: str = "http://localhost:8080/api/v1/roundtable/execute",
+    api_key: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    base_url: str = "https://api.elevenlabs.io",
     target_config: str = "baseline",
     output_file: Optional[str] = None,
     scenario_id_filter: Optional[str] = None,
@@ -197,6 +214,12 @@ def cmd_run(
     adapter: TargetAdapter
     if target_type in ("http", "generic_http"):
         adapter = GenericHttpAdapter(endpoint_url=endpoint_url, target_config=target_config)
+    elif target_type in ("elevenlabs", "elevenlabs_convai"):
+        adapter = ElevenLabsConvAIAdapter(
+            api_key=api_key,
+            agent_id=agent_id,
+            base_url=base_url,
+        )
     else:
         adapter = LocalMockAdapter(target_config=target_config)
 
@@ -332,6 +355,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             suite_path=args.suite,
             target_type=args.target,
             endpoint_url=args.endpoint_url,
+            api_key=args.api_key,
+            agent_id=args.agent_id,
+            base_url=args.base_url,
             target_config=args.target_config,
             output_file=args.output,
             scenario_id_filter=args.scenario_id,
