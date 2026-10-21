@@ -1,0 +1,43 @@
+{
+  "run_id": "run-b1d19231",
+  "target_type": "local_mock",
+  "target_config": "defect_collision_chaos",
+  "timestamp_utc": "2026-10-21T09:11:05.099509+00:00",
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "inconclusive": 0,
+    "not_run": 0,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-COORD-06",
+      "scenario_name": "Multi-Speaker Floor Arbitration & Dead Air Detection",
+      "status": "FAIL",
+      "reason": "Speech cross-talk collision detected: measured 650.0ms overlap, maximum allowed is 200.0ms.",
+      "failure_category": "FAIL-COORD",
+      "evidence": {
+        "turn_index": 2,
+        "timestamp_ms": 300.0,
+        "speaker_id": "dr_aris",
+        "event_type": "SPEECH_CHUNK",
+        "quote_or_payload": "I strongly disagree on the capture efficiency thermodynamic limits.",
+        "notes": "Speakers collided for 650.0ms."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": 650.0
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_collision_chaos",
+      "run_id": "run-b1d19231",
+      "timestamp_utc": "2026-10-21T09:11:05.099573+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}

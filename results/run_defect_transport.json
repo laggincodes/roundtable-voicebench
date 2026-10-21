@@ -1,8 +1,9 @@
 {
-  "run_id": "run-dc552a8a",
+  "run_id": "run-1fa26275",
   "target_type": "local_mock",
   "target_config": "defect_transport_drop",
-  "timestamp_utc": "2026-10-21T09:04:09.397817+00:00",
+  "timestamp_utc": "2026-10-21T09:14:26.171607+00:00",
+  "timing_mode": "virtual_simulation",
   "summary": {
     "total": 6,
     "passed": 0,
@@ -31,9 +32,10 @@
       "metrics": {},
       "target_type": "local_mock",
       "target_config": "defect_transport_drop",
-      "run_id": "run-dc552a8a",
-      "timestamp_utc": "2026-10-21T09:04:09.397873+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-1fa26275",
+      "timestamp_utc": "2026-10-21T09:14:26.171689+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-INT-02",
@@ -54,9 +56,10 @@
       "metrics": {},
       "target_type": "local_mock",
       "target_config": "defect_transport_drop",
-      "run_id": "run-dc552a8a",
-      "timestamp_utc": "2026-10-21T09:04:09.397909+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-1fa26275",
+      "timestamp_utc": "2026-10-21T09:14:26.171740+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-REC-04",
@@ -77,9 +80,10 @@
       "metrics": {},
       "target_type": "local_mock",
       "target_config": "defect_transport_drop",
-      "run_id": "run-dc552a8a",
-      "timestamp_utc": "2026-10-21T09:04:09.397925+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-1fa26275",
+      "timestamp_utc": "2026-10-21T09:14:26.171757+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-ROLE-03",
@@ -100,9 +104,10 @@
       "metrics": {},
       "target_type": "local_mock",
       "target_config": "defect_transport_drop",
-      "run_id": "run-dc552a8a",
-      "timestamp_utc": "2026-10-21T09:04:09.397936+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-1fa26275",
+      "timestamp_utc": "2026-10-21T09:14:26.171771+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-ROUT-01",
@@ -123,9 +128,10 @@
       "metrics": {},
       "target_type": "local_mock",
       "target_config": "defect_transport_drop",
-      "run_id": "run-dc552a8a",
-      "timestamp_utc": "2026-10-21T09:04:09.397949+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-1fa26275",
+      "timestamp_utc": "2026-10-21T09:14:26.171783+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-TOOL-05",
@@ -146,9 +152,10 @@
       "metrics": {},
       "target_type": "local_mock",
       "target_config": "defect_transport_drop",
-      "run_id": "run-dc552a8a",
-      "timestamp_utc": "2026-10-21T09:04:09.397959+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-1fa26275",
+      "timestamp_utc": "2026-10-21T09:14:26.171795+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     }
   ],
   "software_version": "0.1.0"

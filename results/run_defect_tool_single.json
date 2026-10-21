@@ -1,0 +1,43 @@
+{
+  "run_id": "run-686eadc7",
+  "target_type": "local_mock",
+  "target_config": "defect_tool_hallucination",
+  "timestamp_utc": "2026-10-21T09:10:55.608924+00:00",
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "inconclusive": 0,
+    "not_run": 0,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-TOOL-05",
+      "scenario_name": "Tool-Call Correctness & Fact Grounding",
+      "status": "FAIL",
+      "reason": "Required tool 'fetch_market_price' was never called by the agent.",
+      "failure_category": "FAIL-TOOL",
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": null,
+        "speaker_id": "elena_vance",
+        "event_type": "TOOL_CALL_MISSING",
+        "quote_or_payload": "No tool call recorded in trace.",
+        "notes": "Agent answered without invoking required grounding tool."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_tool_hallucination",
+      "run_id": "run-686eadc7",
+      "timestamp_utc": "2026-10-21T09:10:55.608985+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}

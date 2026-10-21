@@ -174,6 +174,7 @@ class ScenarioResult:
     run_id: str = ""
     timestamp_utc: str = ""
     software_version: str = "0.1.0"
+    timing_mode: str = "virtual_simulation"
 
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -189,6 +190,7 @@ class ScenarioResult:
             "run_id": self.run_id,
             "timestamp_utc": self.timestamp_utc,
             "software_version": self.software_version,
+            "timing_mode": self.timing_mode,
         }
         return d
 
@@ -206,6 +208,7 @@ class SuiteResult:
     not_run: int
     results: List[ScenarioResult] = field(default_factory=list)
     software_version: str = "0.1.0"
+    timing_mode: str = "virtual_simulation"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -213,6 +216,7 @@ class SuiteResult:
             "target_type": self.target_type,
             "target_config": self.target_config,
             "timestamp_utc": self.timestamp_utc,
+            "timing_mode": self.timing_mode,
             "summary": {
                 "total": self.total,
                 "passed": self.passed,

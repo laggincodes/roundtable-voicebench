@@ -1,8 +1,9 @@
 {
-  "run_id": "run-ce0787ec",
+  "run_id": "run-ab1dcead",
   "target_type": "local_mock",
   "target_config": "defect_routing_amnesia",
-  "timestamp_utc": "2026-10-21T09:02:23.951096+00:00",
+  "timestamp_utc": "2026-10-21T09:14:25.103895+00:00",
+  "timing_mode": "virtual_simulation",
   "summary": {
     "total": 6,
     "passed": 5,
@@ -34,9 +35,10 @@
       },
       "target_type": "local_mock",
       "target_config": "defect_routing_amnesia",
-      "run_id": "run-ce0787ec",
-      "timestamp_utc": "2026-10-21T09:02:23.951163+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-ab1dcead",
+      "timestamp_utc": "2026-10-21T09:14:25.104110+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-INT-02",
@@ -60,9 +62,10 @@
       },
       "target_type": "local_mock",
       "target_config": "defect_routing_amnesia",
-      "run_id": "run-ce0787ec",
-      "timestamp_utc": "2026-10-21T09:02:23.951315+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-ab1dcead",
+      "timestamp_utc": "2026-10-21T09:14:25.104338+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-REC-04",
@@ -86,9 +89,10 @@
       },
       "target_type": "local_mock",
       "target_config": "defect_routing_amnesia",
-      "run_id": "run-ce0787ec",
-      "timestamp_utc": "2026-10-21T09:02:23.951406+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-ab1dcead",
+      "timestamp_utc": "2026-10-21T09:14:25.104445+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-ROLE-03",
@@ -112,9 +116,10 @@
       },
       "target_type": "local_mock",
       "target_config": "defect_routing_amnesia",
-      "run_id": "run-ce0787ec",
-      "timestamp_utc": "2026-10-21T09:02:23.951507+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-ab1dcead",
+      "timestamp_utc": "2026-10-21T09:14:25.104558+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-ROUT-01",
@@ -138,9 +143,10 @@
       },
       "target_type": "local_mock",
       "target_config": "defect_routing_amnesia",
-      "run_id": "run-ce0787ec",
-      "timestamp_utc": "2026-10-21T09:02:23.951660+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-ab1dcead",
+      "timestamp_utc": "2026-10-21T09:14:25.104729+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     },
     {
       "scenario_id": "SCEN-TOOL-05",
@@ -164,9 +170,10 @@
       },
       "target_type": "local_mock",
       "target_config": "defect_routing_amnesia",
-      "run_id": "run-ce0787ec",
-      "timestamp_utc": "2026-10-21T09:02:23.951684+00:00",
-      "software_version": "0.1.0"
+      "run_id": "run-ab1dcead",
+      "timestamp_utc": "2026-10-21T09:14:25.104757+00:00",
+      "software_version": "0.1.0",
+      "timing_mode": "virtual_simulation"
     }
   ],
   "software_version": "0.1.0"

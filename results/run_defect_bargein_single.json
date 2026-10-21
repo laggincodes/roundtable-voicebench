@@ -1,0 +1,43 @@
+{
+  "run_id": "run-1bac1436",
+  "target_type": "local_mock",
+  "target_config": "defect_bargein_lag",
+  "timestamp_utc": "2026-10-21T09:10:34.220549+00:00",
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "inconclusive": 0,
+    "not_run": 0,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-INT-02",
+      "scenario_name": "Human Barge-In & Yield Latency",
+      "status": "FAIL",
+      "reason": "Interruption yield latency threshold exceeded: measured 1450.0ms, maximum allowed is 750.0ms.",
+      "failure_category": "FAIL-INT",
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 5050.0,
+        "speaker_id": "elena_vance",
+        "event_type": "INTERRUPT_ACK",
+        "quote_or_payload": "Agent yielded after audible delay.",
+        "notes": "Audible yield lag: 1450.0ms."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": 1450.0,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-1bac1436",
+      "timestamp_utc": "2026-10-21T09:10:34.220607+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}

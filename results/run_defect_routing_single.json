@@ -1,0 +1,43 @@
+{
+  "run_id": "run-756e670d",
+  "target_type": "local_mock",
+  "target_config": "defect_routing_amnesia",
+  "timestamp_utc": "2026-10-21T09:10:27.950289+00:00",
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "inconclusive": 0,
+    "not_run": 0,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-ROUT-01",
+      "scenario_name": "Targeted Expert Addressed-Routing",
+      "status": "FAIL",
+      "reason": "Addressed agent routing failure: expected 'dr_aris' to respond, but received response from 'elena_vance'.",
+      "failure_category": "FAIL-ROUT",
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 450.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "From an economic investment perspective, battery storage infrastructure yields solid returns.",
+        "notes": "Wrong expert answered user query."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_routing_amnesia",
+      "run_id": "run-756e670d",
+      "timestamp_utc": "2026-10-21T09:10:27.950343+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}
