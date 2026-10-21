@@ -186,3 +186,63 @@ When integrating an external roundtable implementation into VoiceBench:
 - [ ] **Explicit Timing Separation:** If reporting internal latency, place it in `source_timestamp_ms`; do not synthesize wall-clock durations.
 - [ ] **Handle Interruptions:** If implementing barge-in, emit an `INTERRUPT_ACK` event with the millisecond offset when the agent stopped generating audio.
 - [ ] **Run Regression Diff:** Execute `voicebench diff` between consecutive model checkpoints to detect behavioral regressions.
+
+---
+
+## 7. ElevenLabs Conversational AI Adapter (`ElevenLabsConvAIAdapter`)
+
+VoiceBench includes a dedicated adapter for evaluating agents built on the official **ElevenLabs Conversational AI** platform.
+
+### Supported Capabilities
+```python
+AdapterCapabilities(
+    supports_text_input=True,
+    supports_audio_input=False,
+    supports_barge_in=False,        # REST conversation details do not provide sub-second audio energy cancellation timestamps
+    supports_tool_calls=True,       # Tracked in session transcript
+    supports_multi_agent=False,     # Native ConvAI sessions are single agent
+    timing_mode="observed_wall_clock",
+)
+```
+
+### Official API Endpoints
+- **Agent Verification:** `GET https://api.elevenlabs.io/v1/convai/agents/{agent_id}`
+- **Conversation Details:** `GET https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}`
+- **Header:** `xi-api-key: <api_key>`
+
+### Configuration on Windows PowerShell
+Set environment variables securely in your terminal session (never commit keys to Git):
+```powershell
+$env:ELEVENLABS_API_KEY = "sk_..."
+$env:ELEVENLABS_AGENT_ID = "agent_..."
+```
+
+### Running Evaluation Against ElevenLabs
+```bash
+# Evaluate role consistency of a configured ElevenLabs agent
+python -m voicebench.cli run \
+  --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
+  --target elevenlabs
+
+# Pass credentials or agent ID explicitly via CLI
+python -m voicebench.cli run \
+  --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
+  --target elevenlabs \
+  --api-key "sk_..." \
+  --agent-id "agent_..."
+```
+
+### Capability Matrix & Honest Disclosures
+| Scenario | Capability Required | Supported by ElevenLabs REST? | VoiceBench Behavior |
+| :--- | :--- | :---: | :--- |
+| `SCEN-ROLE-03` | Persona consistency & boundaries | **YES** | Evaluates response text against grounded boundaries. |
+| `SCEN-TOOL-05` | Tool invocation & numeric grounding | **YES** | Evaluates tool triggering from conversation history. |
+| `SCEN-INT-02` | Sub-second audio barge-in yield | **NO** | Rejects with `UnsupportedCapabilityError` (produces `INCONCLUSIVE`). |
+| `SCEN-COORD-06`| Multi-agent floor coordination | **NO** | Rejects with `UnsupportedCapabilityError` (produces `INCONCLUSIVE`). |
+
+### Offline Verification (Zero Credentials Required)
+Developers without paid ElevenLabs accounts can verify the adapter logic locally using the built-in mock server:
+```bash
+python -m pytest tests/test_elevenlabs_adapter.py -v
+```
+All 11 tests execute completely offline without network requests or API costs.

@@ -1,7 +1,7 @@
 # VoiceBench
 
-> **Status:** 🚀 **Milestone 2 Implemented (Integration Readiness, Generic HTTP Adapter & Regression Differencing)**  
-> *VoiceBench has implemented an explicit TargetAdapter capability contract, an out-of-the-box Generic HTTP Adapter, reference HTTP target server, strict timing mode and event provenance safeguards, and automated regression diffing (`voicebench diff`).*
+> **Status:** 🚀 **Milestone 3 Implemented (ElevenLabs Integration & Safe Publishing Readiness)**  
+> *VoiceBench has implemented a dedicated ElevenLabs Conversational AI adapter (`ElevenLabsConvAIAdapter`), rigorous credential redaction, official REST endpoint integration, deterministic offline mock test suite, transparent capability disclosures, and safe GitHub publishing preparation.*
 
 VoiceBench is an independent, open-source evaluation and regression-testing framework designed specifically for real-time multi-agent voice systems. 
 
@@ -56,6 +56,12 @@ python -m voicebench.cli run \
   --target http \
   --endpoint-url http://localhost:8080/api/v1/roundtable/execute \
   --output results/http_run.json
+
+# 6. Run scenario against ElevenLabs Conversational AI
+python -m voicebench.cli run \
+  --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
+  --target elevenlabs \
+  --output results/elevenlabs_run.json
 ```
 
 ---
@@ -120,7 +126,28 @@ See [docs/ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/v
 
 ---
 
-## 4. Current Test Scenarios
+## 4. ElevenLabs Conversational AI Integration & Honest Capability Disclosures
+
+VoiceBench includes a dedicated adapter (`ElevenLabsConvAIAdapter`) connecting directly to official ElevenLabs Conversational AI REST APIs (`/v1/convai/agents/{agent_id}` and `/v1/convai/conversations/{conversation_id}`).
+
+### Capability Support & Honest Boundaries:
+- **Supported:**
+  - Expert persona and boundary verification (`SCEN-ROLE-03`)
+  - Tool invocation schema validation and fact grounding (`SCEN-TOOL-05`)
+  - Post-detour debate topic recovery (`SCEN-REC-04`)
+- **Explicitly Rejected with Inconclusive Verdict:**
+  - Sub-second audio energy barge-in yield measurement (`SCEN-INT-02`): REST conversation details provide second-level message timestamps, not sub-second audio energy cancellation timestamps. Claiming barge-in yield measurement without live bidirectional audio WebSocket instrumentation would be dishonest.
+  - Multi-speaker floor collision measurement (`SCEN-COORD-06`): ElevenLabs ConvAI sessions are natively single-agent.
+
+### Configuration on Windows PowerShell:
+```powershell
+$env:ELEVENLABS_API_KEY = "sk_..."
+$env:ELEVENLABS_AGENT_ID = "agent_..."
+```
+
+---
+
+## 5. Current Test Scenarios
 
 The suite implements six core scenarios targeting six distinct multi-agent failure categories:
 
@@ -135,34 +162,36 @@ The suite implements six core scenarios targeting six distinct multi-agent failu
 
 ---
 
-## 5. Automated Test Suite
+## 6. Automated Test Suite
 
-VoiceBench is backed by a comprehensive automated test suite verifying scenario validation, synthetic traces, target adapter execution, error classification, timing integrity, and regression diffing:
+VoiceBench is backed by a comprehensive automated test suite verifying scenario validation, synthetic traces, mock target adapters, HTTP targets, ElevenLabs integration, error classification, timing integrity, and regression diffing:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-**Results:** `45 passed in ~4.5s` (100% pass rate, 0 warnings).
+**Results:** `56 passed in ~7.5s` (100% pass rate, 0 warnings).
 
 ---
 
-## 6. Documentation Suite
+## 7. Documentation Suite
 
 - **[PRIOR_ART_REVIEW.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
 - **[PROJECT_DECISION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/PROJECT_DECISION.md):** Track scope selection (Problem 1 AI Roundtable) and judging criteria alignment.
 - **[EVALUATION_PLAN.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
 - **[ARCHITECTURE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ARCHITECTURE.md):** System architecture, interfaces, and diff specifications.
-- **[ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, timing rules, and reference server.
+- **[ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, ElevenLabs adapter guide, timing rules, and reference server.
+- **[ELEVENLABS_INTEGRATION_DECISION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ELEVENLABS_INTEGRATION_DECISION.md):** Official API references, integration scope, and capability decisions.
 - **[MILESTONE_PLAN.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_PLAN.md):** Implementation roadmap for the hackathon.
 - **[MILESTONE_1_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_1_VERIFICATION.md):** Milestone 1 verification gate audit.
 - **[MILESTONE_2_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_2_VERIFICATION.md):** Milestone 2 verification gate audit.
+- **[MILESTONE_3_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_3_VERIFICATION.md):** Milestone 3 verification gate audit and safe publishing readiness.
 
 ---
 
-## 7. Clean-Room Implementation & Originality Standard
+## 8. Clean-Room Implementation & Originality Standard
 
 - All code and documentation written from scratch.
 - Zero code copied, forked, or vendored from external projects.
 - Authorship accurately reflects true local developers.
-- Work is local and unpublished; no remote Git repository has been configured or pushed.
+- Work is local and unpublished; no remote Git repository has been pushed.
