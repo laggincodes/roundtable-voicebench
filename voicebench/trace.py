@@ -51,6 +51,9 @@ class TraceCollector:
         audio_duration_ms: Optional[float] = None,
         is_simulated: bool = True,
         timestamp_ms: Optional[float] = None,
+        source_timestamp_ms: Optional[float] = None,
+        client_timestamp_ms: Optional[float] = None,
+        event_provenance: str = "local_virtual",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> TraceEvent:
         """Record an event with verified timestamp, speaker, and payload."""
@@ -64,6 +67,9 @@ class TraceCollector:
             turn_index=turn_index,
             audio_duration_ms=audio_duration_ms,
             is_simulated=is_simulated,
+            source_timestamp_ms=source_timestamp_ms,
+            client_timestamp_ms=client_timestamp_ms,
+            event_provenance=event_provenance,
             metadata=metadata or {},
         )
         self._events.append(event)

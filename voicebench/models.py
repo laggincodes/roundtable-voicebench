@@ -97,6 +97,20 @@ class Scenario:
 
 
 @dataclass
+class AdapterCapabilities:
+    """Explicit declaration of capabilities supported by a target adapter."""
+    supports_text_input: bool = True
+    supports_audio_input: bool = False
+    supports_barge_in: bool = False
+    supports_tool_calls: bool = False
+    supports_multi_agent: bool = True
+    timing_mode: str = "virtual_simulation"  # "virtual_simulation" or "observed_wall_clock"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class TraceEvent:
     timestamp_ms: float
     event_type: EventType
@@ -106,6 +120,9 @@ class TraceEvent:
     turn_index: Optional[int] = None
     audio_duration_ms: Optional[float] = None
     is_simulated: bool = True                     # Clearly labeled as simulated!
+    source_timestamp_ms: Optional[float] = None   # Target-reported timestamp if available
+    client_timestamp_ms: Optional[float] = None   # Monotonic client-observed timestamp
+    event_provenance: str = "local_virtual"       # "local_virtual", "client_observed", "target_reported"
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -169,6 +186,7 @@ class ScenarioResult:
     evidence: Optional[Evidence] = None
     failure_category: Optional[str] = None
     metrics: Dict[str, Optional[float]] = field(default_factory=dict)
+    metric_notes: Dict[str, str] = field(default_factory=dict)  # Explanations for unavailable/null metrics
     target_type: str = "local_mock"
     target_config: str = "baseline"
     run_id: str = ""
@@ -185,6 +203,7 @@ class ScenarioResult:
             "failure_category": self.failure_category,
             "evidence": self.evidence.to_dict() if self.evidence else None,
             "metrics": self.metrics,
+            "metric_notes": self.metric_notes,
             "target_type": self.target_type,
             "target_config": self.target_config,
             "run_id": self.run_id,
@@ -228,6 +247,76 @@ class SuiteResult:
             "results": [r.to_dict() for r in self.results],
             "software_version": self.software_version,
         }
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent)
+
+
+class StatusTransition(str, Enum):
+    REGRESSION = "REGRESSION"            # PASS -> FAIL
+    FIXED = "FIXED"                      # FAIL -> PASS
+    UNCHANGED_PASS = "UNCHANGED_PASS"    # PASS -> PASS
+    UNCHANGED_FAIL = "UNCHANGED_FAIL"    # FAIL -> FAIL
+    INCONCLUSIVE_SHIFT = "INCONCLUSIVE_SHIFT"  # Change to or from INCONCLUSIVE
+    NEW_SCENARIO = "NEW_SCENARIO"        # Added in candidate run
+    REMOVED_SCENARIO = "REMOVED_SCENARIO"# Missing in candidate run
+
+
+@dataclass
+class MetricDelta:
+    metric_name: str
+    baseline_value: Optional[float]
+    candidate_value: Optional[float]
+    delta: Optional[float]
+    is_compatible: bool
+    notes: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ScenarioDiff:
+    scenario_id: str
+    scenario_name: str
+    baseline_status: Optional[str]
+    candidate_status: Optional[str]
+    transition: StatusTransition
+    baseline_failure_category: Optional[str] = None
+    candidate_failure_category: Optional[str] = None
+    reason_change: Optional[str] = None
+    metric_deltas: List[MetricDelta] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["transition"] = self.transition.value if isinstance(self.transition, StatusTransition) else self.transition
+        return d
+
+
+@dataclass
+class RegressionReport:
+    baseline_run_id: str
+    candidate_run_id: str
+    baseline_target: str
+    candidate_target: str
+    baseline_config: str
+    candidate_config: str
+    baseline_timing_mode: str
+    candidate_timing_mode: str
+    timing_modes_compatible: bool
+    timing_compatibility_note: str
+    total_compared: int
+    regressions_count: int
+    fixes_count: int
+    unchanged_pass_count: int
+    unchanged_fail_count: int
+    inconclusive_count: int
+    scenario_diffs: List[ScenarioDiff] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["scenario_diffs"] = [s.to_dict() for s in self.scenario_diffs]
+        return d
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent)

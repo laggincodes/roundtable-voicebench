@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from voicebench.adapters.base import TargetAdapter
-from voicebench.models import ConversationTrace, Scenario
+from voicebench.models import AdapterCapabilities, ConversationTrace, Scenario
 from voicebench.targets.roundtable import SimulatedRoundtableTarget
 
 
@@ -19,6 +19,17 @@ class LocalMockAdapter(TargetAdapter):
     def __init__(self, target_config: str = "baseline"):
         super().__init__(target_type="local_mock", target_config=target_config)
         self._target: Optional[SimulatedRoundtableTarget] = None
+
+    def get_capabilities(self) -> AdapterCapabilities:
+        """Declare capabilities of the local simulated roundtable target."""
+        return AdapterCapabilities(
+            supports_text_input=True,
+            supports_audio_input=True,  # Simulated audio
+            supports_barge_in=True,
+            supports_tool_calls=True,
+            supports_multi_agent=True,
+            timing_mode="virtual_simulation",
+        )
 
     def initialize(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize the simulated roundtable target with the selected configuration."""

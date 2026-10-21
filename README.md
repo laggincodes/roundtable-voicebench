@@ -1,7 +1,7 @@
 # VoiceBench
 
-> **Status:** 🚀 **Milestone 1 Implemented (Core Engine, Schemas & Local Mock Target)**  
-> *VoiceBench has implemented its offline-first core evaluation engine, YAML schema validator, deterministic assertion engine, simulated multi-agent reference target, and CLI runner.*
+> **Status:** 🚀 **Milestone 2 Implemented (Integration Readiness, Generic HTTP Adapter & Regression Differencing)**  
+> *VoiceBench has implemented an explicit TargetAdapter capability contract, an out-of-the-box Generic HTTP Adapter, reference HTTP target server, strict timing mode and event provenance safeguards, and automated regression diffing (`voicebench diff`).*
 
 VoiceBench is an independent, open-source evaluation and regression-testing framework designed specifically for real-time multi-agent voice systems. 
 
@@ -34,90 +34,95 @@ python -m voicebench.cli scenarios list
 python -m voicebench.cli scenarios validate scenarios/roundtable
 ```
 
-### 1.3 Run Scenarios Against the Reference Target
+### 1.3 Run Scenarios Against Target Adapters
 ```bash
-# 3. Run the complete 6-scenario suite against the compliant Baseline target
+# 3. Run the complete 6-scenario suite against the compliant Baseline mock target
 python -m voicebench.cli run \
   --suite scenarios/roundtable \
+  --target mock \
   --target-config baseline \
-  --output results/run_baseline.json
+  --output results/baseline.json
 
-# 4. Run against a deliberately defective target to see regression detection
+# 4. Run against a candidate configuration with an introduced defect
 python -m voicebench.cli run \
   --suite scenarios/roundtable \
+  --target mock \
   --target-config defect_bargein_lag \
-  --output results/run_defect_bargein.json
+  --output results/candidate_bargein.json
+
+# 5. Run scenarios against an external roundtable service via Generic HTTP Adapter
+python -m voicebench.cli run \
+  --suite scenarios/roundtable \
+  --target http \
+  --endpoint-url http://localhost:8080/api/v1/roundtable/execute \
+  --output results/http_run.json
 ```
 
 ---
 
-## 2. Example: Concrete Defect Detection & Failure Evidence
+## 2. Regression Differencing: `voicebench diff`
 
-When VoiceBench tests a target with an introduced regression (such as excessive barge-in yield delay), the assertion engine catches the defect and outputs exact turn and timing evidence:
+VoiceBench provides first-class regression tracking between consecutive model versions or prompt updates. It compares baseline and candidate runs, classifies transitions, and flags regressions:
 
+```bash
+python -m voicebench.cli diff results/baseline.json results/candidate_bargein.json \
+  --output results/diff.json \
+  --report results/diff_report.md
+```
+
+### Example Console Output:
 ```text
-Starting VoiceBench test run:
-  Target: LocalMockAdapter (Config: defect_bargein_lag)
-  Scenarios: 6
-======================================================================
-[PASS]          SCEN-COORD-06    Multi-Speaker Floor Arbitration & Dead Air Detection
-[FAIL]          SCEN-INT-02      Human Barge-In & Yield Latency
-                Reason: Interruption yield latency threshold exceeded: measured 1450.0ms, maximum allowed is 750.0ms.
-                Evidence: Audible yield lag: 1450.0ms.
-[PASS]          SCEN-REC-04      Post-Interruption Debate Topic Recovery
-[PASS]          SCEN-ROLE-03     Persona & Stance Consistency Under Adversarial Prompt
-[PASS]          SCEN-ROUT-01     Targeted Expert Addressed-Routing
-[PASS]          SCEN-TOOL-05     Tool-Call Correctness & Fact Grounding
-======================================================================
-Summary: 6 total | 5 passed | 1 failed | 0 inconclusive | 0 not run (83.3% pass rate)
+========================================================
+VoiceBench Regression Comparison
+========================================================
+Baseline:  run-dc4020ab (local_mock / baseline / virtual_simulation)
+Candidate: run-edf3ccc3 (local_mock / defect_bargein_lag / virtual_simulation)
+Timing Modes: COMPATIBLE
 
-Machine-readable results written to: .../results/run_defect_bargein.json
+Summary:
+  Compared:    6
+  Regressions: 1 (PASS -> FAIL)
+  Fixes:       0 (FAIL -> PASS)
+  Unchanged:   5 pass, 0 fail
+  Shifts:      0 inconclusive
+--------------------------------------------------------
+[UNCHANGED_PASS]     SCEN-COORD-06   PASS -> PASS
+[REGRESSION]         SCEN-INT-02     PASS -> FAIL
+  [!] Regression Reason: Baseline: All deterministic assertions satisfied with verifiable evidence. -> Candidate: Interruption yield latency threshold exceeded: measured 1450.0ms, maximum allowed is 750.0ms.
+  Category: FAIL-INT
+     Metric yield_latency_ms: 320.0 -> 1450.0 (delta: +1130.0)
+[UNCHANGED_PASS]     SCEN-REC-04     PASS -> PASS
+[UNCHANGED_PASS]     SCEN-ROLE-03    PASS -> PASS
+[UNCHANGED_PASS]     SCEN-ROUT-01    PASS -> PASS
+[UNCHANGED_PASS]     SCEN-TOOL-05    PASS -> PASS
+
+Machine-readable diff written to: results/diff.json
+Markdown differential report written to: results/diff_report.md
 ```
 
-Machine-readable results in `results/*.json` record the exact failure category (`FAIL-INT`), turn index, timestamp, and measured metrics:
-```json
-{
-  "scenario_id": "SCEN-INT-02",
-  "status": "FAIL",
-  "reason": "Interruption yield latency threshold exceeded: measured 1450.0ms, maximum allowed is 750.0ms.",
-  "failure_category": "FAIL-INT",
-  "evidence": {
-    "turn_index": 1,
-    "timestamp_ms": 4950.0,
-    "speaker_id": "elena_vance",
-    "event_type": "INTERRUPT_ACK",
-    "notes": "Audible yield lag: 1450.0ms."
-  },
-  "metrics": {
-    "turn_count": 1,
-    "yield_latency_ms": 1450.0
-  }
-}
-```
+The CLI exits with code `1` if any regression is detected, integrating directly into CI/CD quality gates.
 
 ---
 
-## 3. Architectural Design
+## 3. Generic HTTP Adapter & Integration Protocol
 
-```mermaid
-flowchart LR
-    A["Scenario Suite\n(YAML)"] --> B["Scenario Runner\n(Orchestrator)"]
-    B --> C["Target Adapter\n(LocalMockAdapter)"]
-    C --> D["Conversation Trace\n(Timestamps + Events)"]
-    D --> E["Deterministic Evaluator\n(Pass / Fail / Inconclusive)"]
-    E --> F["Machine-Readable Output\n(results/*.json)"]
-```
+Peer teams building real-time multi-agent systems can integrate with VoiceBench using standard HTTP JSON endpoints—without requiring custom SDK installations or code alterations to VoiceBench.
 
-- **Scenario Schema (`voicebench/parser.py`):** Parses human-readable YAML specifications with strict validation of required fields, turn schemas, and assertion parameters.
-- **Trace Collector (`voicebench/trace.py`):** Immutable event log recording monotonic millisecond timestamps, speaker identities, intended recipients, audio durations, and tool calls.
-- **Pluggable Target Adapter (`voicebench/adapters/`):** Decoupled abstract contract (`TargetAdapter`) implemented by `LocalMockAdapter`.
-- **Deterministic Assertion Engine (`voicebench/evaluator.py`):** Evaluates multi-agent routing, yield timing, keyword grounding, and tool schemas without relying on flaky or expensive LLM-as-a-judge scorers.
+- **Request Schema:** Sends full scenario context (`scenario_id`, `preconditions`, `active_agents`, and conversational `turns`).
+- **Response Schema:** Receives JSON event log containing `events` (`TRANSCRIPT_FINAL`, `SPEECH_CHUNK`, `INTERRUPT_ACK`, `TOOL_CALL`).
+- **Measurement Integrity:**
+  - Client observed latency is tracked monotonically and labeled `event_provenance="client_observed"`.
+  - Target internal latency is preserved separately in `source_timestamp_ms` (`event_provenance="target_reported"`).
+  - Incompatible timing modes (`virtual_simulation` vs `observed_wall_clock`) are rejected from metric deltas to prevent dishonest comparisons.
+- **Resilience:** Unreachable ports, connection timeouts, HTTP 500, and malformed JSON are cleanly caught as `TRANSPORT_ERROR` events and evaluated as `INCONCLUSIVE` (`FAIL_INFRA`).
+
+See [docs/ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md) for full endpoint specifications, payload schemas, and integration checklists.
 
 ---
 
 ## 4. Current Test Scenarios
 
-The suite currently implements six initial scenarios covering six distinct failure categories:
+The suite implements six core scenarios targeting six distinct multi-agent failure categories:
 
 | Scenario ID | Name | Failure Category | Target Behavior Tested |
 | :--- | :--- | :--- | :--- |
@@ -130,38 +135,32 @@ The suite currently implements six initial scenarios covering six distinct failu
 
 ---
 
-## 5. Limitations of the Local Mock Target
+## 5. Automated Test Suite
 
-The `LocalMockAdapter` and `SimulatedRoundtableTarget` implemented in Milestone 1 provide a controlled, 100% reproducible environment for verifying the evaluation engine. Note the following intentional limitations:
-1. **Simulated Timing & Virtual Clocks:** Events use deterministic millisecond offsets rather than live audio packet arrival times over a network socket.
-2. **Offline Transcript Fixtures:** The mock does not perform live automatic speech recognition (ASR) or text-to-speech (TTS) synthesis.
-3. **Not an ElevenLabs Agent:** The mock simulates the conversational behavior and failure modes of multi-agent roundtables; it does not connect to ElevenLabs cloud servers. (Live network and ElevenLabs adapter integration will be implemented in Milestone 3).
-
----
-
-## 6. Running Automated Tests
-
-VoiceBench includes a comprehensive automated test suite verifying scenario validation, trace serialization, baseline satisfaction, defect detection, and CLI exit codes:
+VoiceBench is backed by a comprehensive automated test suite verifying scenario validation, synthetic traces, target adapter execution, error classification, timing integrity, and regression diffing:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-All 26 automated tests pass with 0 warnings.
+**Results:** `45 passed in ~4.5s` (100% pass rate, 0 warnings).
 
 ---
 
-## 7. Documentation Suite
+## 6. Documentation Suite
 
 - **[PRIOR_ART_REVIEW.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
 - **[PROJECT_DECISION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/PROJECT_DECISION.md):** Track scope selection (Problem 1 AI Roundtable) and judging criteria alignment.
 - **[EVALUATION_PLAN.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
 - **[ARCHITECTURE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ARCHITECTURE.md):** System architecture, interfaces, and diff specifications.
+- **[ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, timing rules, and reference server.
 - **[MILESTONE_PLAN.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_PLAN.md):** Implementation roadmap for the hackathon.
+- **[MILESTONE_1_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_1_VERIFICATION.md):** Milestone 1 verification gate audit.
+- **[MILESTONE_2_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_2_VERIFICATION.md):** Milestone 2 verification gate audit.
 
 ---
 
-## 8. Clean-Room Implementation & Originality Standard
+## 7. Clean-Room Implementation & Originality Standard
 
 - All code and documentation written from scratch.
 - Zero code copied, forked, or vendored from external projects.

@@ -3,7 +3,8 @@
 Supports:
   - voicebench scenarios list
   - voicebench scenarios validate
-  - voicebench run [--suite PATH] [--target-config CONFIG] [--output FILE]
+  - voicebench run [--suite PATH] [--target {mock,http}] [--endpoint-url URL] [--output FILE]
+  - voicebench diff BASELINE.json CANDIDATE.json [--output FILE] [--report FILE]
 """
 
 from __future__ import annotations
@@ -14,9 +15,17 @@ from pathlib import Path
 import sys
 from typing import List, Optional
 
+from voicebench.adapters.base import TargetAdapter
+from voicebench.adapters.http import GenericHttpAdapter
 from voicebench.adapters.mock import LocalMockAdapter
+from voicebench.comparator import (
+    compare_run_files,
+    compare_runs,
+    generate_markdown_diff_report,
+    load_suite_result_from_file,
+)
 from voicebench.evaluator import Evaluator
-from voicebench.models import SuiteResult, TestStatus
+from voicebench.models import StatusTransition, SuiteResult, TestStatus
 from voicebench.parser import (
     ScenarioValidationError,
     load_scenario_from_file,
@@ -65,8 +74,13 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--target", "-t",
         default="mock",
-        choices=["mock", "local_mock"],
+        choices=["mock", "local_mock", "http", "generic_http"],
         help="Target adapter type (default: mock)",
+    )
+    run_parser.add_argument(
+        "--endpoint-url",
+        default="http://localhost:8080/api/v1/roundtable/execute",
+        help="Target endpoint URL when using HTTP adapter (default: http://localhost:8080/api/v1/roundtable/execute)",
     )
     run_parser.add_argument(
         "--target-config", "-c",
@@ -81,6 +95,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--scenario-id",
         help="Filter to run only a single scenario ID",
     )
+
+    # --- diff command ---
+    diff_parser = subparsers.add_parser("diff", help="Compare two test runs and generate regression report")
+    diff_parser.add_argument("baseline", help="Path to baseline results JSON file")
+    diff_parser.add_argument("candidate", help="Path to candidate results JSON file")
+    diff_parser.add_argument("--output", "-o", help="Path to write machine-readable diff JSON")
+    diff_parser.add_argument("--report", "-r", help="Path to write Markdown differential report")
 
     return parser
 
@@ -146,6 +167,8 @@ def cmd_scenarios_validate(targets: List[str]) -> int:
 
 def cmd_run(
     suite_path: str,
+    target_type: str = "mock",
+    endpoint_url: str = "http://localhost:8080/api/v1/roundtable/execute",
     target_config: str = "baseline",
     output_file: Optional[str] = None,
     scenario_id_filter: Optional[str] = None,
@@ -171,11 +194,16 @@ def cmd_run(
             print(f"Error: No scenario matching ID '{scenario_id_filter}' found.", file=sys.stderr)
             return 2
 
-    adapter = LocalMockAdapter(target_config=target_config)
+    adapter: TargetAdapter
+    if target_type in ("http", "generic_http"):
+        adapter = GenericHttpAdapter(endpoint_url=endpoint_url, target_config=target_config)
+    else:
+        adapter = LocalMockAdapter(target_config=target_config)
+
     runner = SuiteRunner(adapter=adapter, evaluator=Evaluator())
 
     print(f"\nStarting VoiceBench test run:")
-    print(f"  Target: LocalMockAdapter (Config: {target_config})")
+    print(f"  Target: {type(adapter).__name__} (Config: {target_config}, Timing: {adapter.get_capabilities().timing_mode})")
     print(f"  Scenarios: {len(scenarios)}")
     print("=" * 70)
 
@@ -213,6 +241,74 @@ def cmd_run(
     return 0
 
 
+def cmd_diff(
+    baseline_path: str,
+    candidate_path: str,
+    output_json: Optional[str] = None,
+    report_md: Optional[str] = None,
+) -> int:
+    """Compare two test runs and display regression analysis."""
+    try:
+        baseline_res = load_suite_result_from_file(baseline_path)
+    except Exception as e:
+        print(f"Error loading baseline file '{baseline_path}': {e}", file=sys.stderr)
+        return 2
+
+    try:
+        candidate_res = load_suite_result_from_file(candidate_path)
+    except Exception as e:
+        print(f"Error loading candidate file '{candidate_path}': {e}", file=sys.stderr)
+        return 2
+
+    report = compare_runs(baseline_res, candidate_res)
+
+    print(f"\n========================================================")
+    print(f"VoiceBench Regression Comparison")
+    print(f"========================================================")
+    print(f"Baseline:  {report.baseline_run_id} ({report.baseline_target} / {report.baseline_config} / {report.baseline_timing_mode})")
+    print(f"Candidate: {report.candidate_run_id} ({report.candidate_target} / {report.candidate_config} / {report.candidate_timing_mode})")
+    print(f"Timing Modes: {'COMPATIBLE' if report.timing_modes_compatible else 'INCOMPATIBLE'}")
+    if not report.timing_modes_compatible:
+        print(f"Note: {report.timing_compatibility_note}")
+
+    print(f"\nSummary:")
+    print(f"  Compared:    {report.total_compared}")
+    print(f"  Regressions: {report.regressions_count} (PASS -> FAIL)")
+    print(f"  Fixes:       {report.fixes_count} (FAIL -> PASS)")
+    print(f"  Unchanged:   {report.unchanged_pass_count} pass, {report.unchanged_fail_count} fail")
+    print(f"  Shifts:      {report.inconclusive_count} inconclusive")
+    print("-" * 56)
+
+    for d in report.scenario_diffs:
+        transition_label = f"[{d.transition.value}]"
+        print(f"{transition_label:<20} {d.scenario_id:<15} {d.baseline_status or 'N/A'} -> {d.candidate_status or 'N/A'}")
+        if d.transition == StatusTransition.REGRESSION:
+            print(f"  [!] Regression Reason: {d.reason_change}")
+            if d.candidate_failure_category:
+                print(f"  Category: {d.candidate_failure_category}")
+        for md in d.metric_deltas:
+            if md.is_compatible and md.delta is not None and abs(md.delta) > 0.0:
+                print(f"     Metric {md.metric_name}: {md.baseline_value} -> {md.candidate_value} (delta: {md.delta:+.1f})")
+
+    print()
+
+    if output_json:
+        out_p = Path(output_json)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(report.to_json(), encoding="utf-8")
+        print(f"Machine-readable diff written to: {out_p.resolve()}")
+
+    if report_md:
+        rep_p = Path(report_md)
+        rep_p.parent.mkdir(parents=True, exist_ok=True)
+        md_text = generate_markdown_diff_report(report)
+        rep_p.write_text(md_text, encoding="utf-8")
+        print(f"Markdown differential report written to: {rep_p.resolve()}")
+
+    # Return exit code 1 if any regressions exist
+    return 1 if report.regressions_count > 0 else 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint."""
     parser = build_parser()
@@ -234,9 +330,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.subcommand == "run":
         return cmd_run(
             suite_path=args.suite,
+            target_type=args.target,
+            endpoint_url=args.endpoint_url,
             target_config=args.target_config,
             output_file=args.output,
             scenario_id_filter=args.scenario_id,
+        )
+
+    elif args.subcommand == "diff":
+        return cmd_diff(
+            baseline_path=args.baseline,
+            candidate_path=args.candidate,
+            output_json=args.output,
+            report_md=args.report,
         )
 
     return 0
