@@ -13,6 +13,7 @@ from voicebench.models import (
     ScenarioExpectations,
     TurnInput,
 )
+from voicebench.evaluator import parse_and_validate_path
 
 
 class ScenarioValidationError(Exception):
@@ -102,12 +103,47 @@ def validate_scenario_dict(data: Dict[str, Any], source_label: str = "<memory>")
             "max_dead_air_ms",
             "require_topic_recovery",
             "recovery_keywords",
+            "expected_tool_result",
+            "required_tool_result_fields",
+            "require_nonempty_tool_result",
+            "expected_tool_result_paths",
+            "required_tool_result_paths",
         ]
         has_assertion = any(k in expectations and expectations[k] is not None for k in assertable_keys)
         if not has_assertion:
             errors.append(
                 f"{source_label}: 'expectations' must define at least one valid assertion criteria from: {', '.join(assertable_keys[:7])}..."
             )
+
+        # Validate structured tool-result assertion types if specified
+        if "expected_tool_result" in expectations and expectations["expected_tool_result"] is not None:
+            if not isinstance(expectations["expected_tool_result"], dict):
+                errors.append(f"{source_label}: 'expectations.expected_tool_result' must be a dictionary/mapping of expected field-value pairs.")
+        if "required_tool_result_fields" in expectations and expectations["required_tool_result_fields"] is not None:
+            if not isinstance(expectations["required_tool_result_fields"], list) or not all(isinstance(x, str) and x.strip() for x in expectations["required_tool_result_fields"]):
+                errors.append(f"{source_label}: 'expectations.required_tool_result_fields' must be a list of non-empty field name strings.")
+        if "require_nonempty_tool_result" in expectations and expectations["require_nonempty_tool_result"] is not None:
+            if not isinstance(expectations["require_nonempty_tool_result"], bool):
+                errors.append(f"{source_label}: 'expectations.require_nonempty_tool_result' must be a boolean.")
+
+        # Validate nested path assertions
+        if "expected_tool_result_paths" in expectations and expectations["expected_tool_result_paths"] is not None:
+            if not isinstance(expectations["expected_tool_result_paths"], dict):
+                errors.append(f"{source_label}: 'expectations.expected_tool_result_paths' must be a dictionary/mapping of path-value pairs.")
+            else:
+                for path_str in expectations["expected_tool_result_paths"].keys():
+                    valid, err_msg, _ = parse_and_validate_path(path_str)
+                    if not valid:
+                        errors.append(f"{source_label}: Invalid path in 'expectations.expected_tool_result_paths': {err_msg}")
+
+        if "required_tool_result_paths" in expectations and expectations["required_tool_result_paths"] is not None:
+            if not isinstance(expectations["required_tool_result_paths"], list):
+                errors.append(f"{source_label}: 'expectations.required_tool_result_paths' must be a list of path strings.")
+            else:
+                for path_str in expectations["required_tool_result_paths"]:
+                    valid, err_msg, _ = parse_and_validate_path(path_str)
+                    if not valid:
+                        errors.append(f"{source_label}: Invalid path in 'expectations.required_tool_result_paths': {err_msg}")
 
     return errors
 
@@ -171,6 +207,11 @@ def load_scenario_from_dict(data: Dict[str, Any], source_file: Optional[str] = N
         max_dead_air_ms=float(exp_raw["max_dead_air_ms"]) if exp_raw.get("max_dead_air_ms") is not None else None,
         require_topic_recovery=bool(exp_raw["require_topic_recovery"]) if exp_raw.get("require_topic_recovery") is not None else None,
         recovery_keywords=list(exp_raw.get("recovery_keywords", [])),
+        expected_tool_result=dict(exp_raw["expected_tool_result"]) if exp_raw.get("expected_tool_result") is not None else None,
+        required_tool_result_fields=list(exp_raw["required_tool_result_fields"]) if exp_raw.get("required_tool_result_fields") is not None else None,
+        require_nonempty_tool_result=bool(exp_raw["require_nonempty_tool_result"]) if exp_raw.get("require_nonempty_tool_result") is not None else None,
+        expected_tool_result_paths=dict(exp_raw["expected_tool_result_paths"]) if exp_raw.get("expected_tool_result_paths") is not None else None,
+        required_tool_result_paths=list(exp_raw["required_tool_result_paths"]) if exp_raw.get("required_tool_result_paths") is not None else None,
     )
 
     return Scenario(

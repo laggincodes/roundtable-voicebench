@@ -2,21 +2,21 @@
 
 An open-source evaluation framework for real-time multi-agent voice conversations, testing interruption handling, expert roles, conversation recovery, and behavioral regressions.
 
-> **Status:** 🚀 **Milestone 3 Implemented (ElevenLabs Integration & Safe Publishing Readiness)**  
-> *VoiceBench has implemented a dedicated ElevenLabs Conversational AI adapter (`ElevenLabsConvAIAdapter`), rigorous credential redaction, official REST endpoint integration, deterministic offline mock test suite, transparent capability disclosures, and safe GitHub publishing preparation.*
+> **Status:** 🚀 **Submission Ready (Verified Clean-Room Framework & Live Smoke Validated)**
+> *VoiceBench delivers an automated, reproducible evaluation framework for conversational voice systems, featuring deterministic assertion checking, structured nested tool-result verification, scenario alignment validation, correlation integrity, a Generic HTTP adapter, and a dedicated ElevenLabs completed-conversation adapter with rigorous credential redaction and timing provenance separation.*
 
-VoiceBench is an independent, open-source evaluation and regression-testing framework designed specifically for real-time multi-agent voice systems. 
+VoiceBench is an independent, open-source evaluation and regression-testing framework designed specifically for real-time conversational voice systems.
 
-Developed for **FOSS FORGE 2.0 (Build with ElevenLabs)**, VoiceBench targets **Problem 1: AI Roundtable**, providing developers with an automated, reproducible way to test whether multi-agent podcasts and panel discussions maintain conversational floor control, handle human barge-in interruptions, preserve expert personas, and recover context after detours.
+Developed for **FOSS FORGE 2.0 (Build with ElevenLabs)**, VoiceBench targets **Problem 1: AI Roundtable**, providing developers with an automated, reproducible way to test whether conversational voice agents maintain expert personas, execute tool calls accurately, produce structured tool results, handle interruptions cleanly, and recover context after detours.
 
 ---
 
 ## 1. Quickstart: Running VoiceBench in 2 Minutes
 
 ### 1.1 Prerequisites & Installation
-VoiceBench is engineered to run completely offline with minimal dependencies:
+VoiceBench is engineered to run offline with minimal, transparent dependencies:
 - Python 3.10+ (tested on Python 3.13)
-- Runtime dependencies: `pyyaml` (for scenario parsing)
+- Runtime dependencies: `pyyaml` (for scenario parsing), `elevenlabs` (official SDK), `python-dotenv` (for loading `.env` credentials)
 - Developer dependencies: `pytest` (for automated test suite)
 
 ```bash
@@ -24,7 +24,7 @@ VoiceBench is engineered to run completely offline with minimal dependencies:
 cd voicebench
 
 # Install required dependencies
-pip install pyyaml pytest
+pip install -r requirements.txt
 ```
 
 ### 1.2 Inspect & Validate Scenarios
@@ -32,38 +32,41 @@ pip install pyyaml pytest
 # 1. List all available scenarios
 python -m voicebench.cli scenarios list
 
-# 2. Validate all scenario YAML files against the VoiceBench schema
+# 2. Validate canonical roundtable scenarios against schema
 python -m voicebench.cli scenarios validate scenarios/roundtable
+
+# 3. Validate dedicated ElevenLabs live smoke scenario
+python -m voicebench.cli scenarios validate scenarios/live/elevenlabs
 ```
 
 ### 1.3 Run Scenarios Against Target Adapters
 ```bash
-# 3. Run the complete 6-scenario suite against the compliant Baseline mock target
+# 4. Run the complete 6-scenario suite against the compliant Baseline mock target
 python -m voicebench.cli run \
   --suite scenarios/roundtable \
   --target mock \
   --target-config baseline \
   --output results/baseline.json
 
-# 4. Run against a candidate configuration with an introduced defect
+# 5. Run against a candidate configuration with an introduced defect
 python -m voicebench.cli run \
   --suite scenarios/roundtable \
   --target mock \
   --target-config defect_bargein_lag \
   --output results/candidate_bargein.json
 
-# 5. Run scenarios against an external roundtable service via Generic HTTP Adapter
+# 6. Run scenarios against an external roundtable service via Generic HTTP Adapter
 python -m voicebench.cli run \
   --suite scenarios/roundtable \
   --target http \
   --endpoint-url http://localhost:8080/api/v1/roundtable/execute \
   --output results/http_run.json
 
-# 6. Run scenario against ElevenLabs Conversational AI
+# 7. Run dedicated smoke scenario against a real completed ElevenLabs conversation
 python -m voicebench.cli run \
-  --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
+  --suite scenarios/live/elevenlabs/SCEN-ELEVEN-SMOKE-01.yaml \
   --target elevenlabs \
-  --conversation-id "conv_your_conversation_id" \
+  --conversation-id "conv_0501m5fpgz7jfnpbnwwn75nxwe7k" \
   --output results/elevenlabs_run.json
 ```
 
@@ -129,37 +132,57 @@ See [docs/ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md) for full endpoint specificati
 
 ---
 
-## 4. ElevenLabs Conversational AI Integration & Honest Capability Disclosures
+## 4. Supported Scenario Assertions & ElevenLabs Integration
 
 VoiceBench includes a dedicated adapter (`ElevenLabsConvAIAdapter`) connecting directly to official ElevenLabs Conversational AI REST APIs (`/v1/convai/agents/{agent_id}` and `/v1/convai/conversations/{conversation_id}`).
 
-### Capability Support & Honest Boundaries:
-- **Supported:**
-  - Expert persona and boundary verification (`SCEN-ROLE-03`)
-  - Tool invocation schema validation, execution error checking, and fact grounding (`SCEN-TOOL-05`)
-  - Post-detour debate topic recovery (`SCEN-REC-04`)
-- **Timing Mode & Provenance (`target_reported_call_relative`):**
-  - Transcript turns carry target-reported, call-relative timing (`time_in_call_secs`), never conflated with client-observed wall-clock latency.
-  - Client REST fetch latency (`fetch_latency_ms`) is tracked separately via monotonic clock and tagged `client_observed`.
-- **Explicitly Rejected with Inconclusive Verdict:**
-  - Sub-second audio energy barge-in yield measurement (`SCEN-INT-02`): REST conversation details provide call-relative message timestamps, not sub-second audio energy cancellation timestamps. Claiming barge-in yield measurement without live bidirectional audio WebSocket instrumentation would be dishonest.
-  - Multi-speaker floor collision measurement (`SCEN-COORD-06`): ElevenLabs ConvAI sessions are natively single-agent.
+### 4.1 Supported Scenario Assertions
+VoiceBench evaluates conversational evidence through deterministic, reproducible rules—without relying on non-deterministic LLM judging:
+- **Persona & Stance Consistency:** Verifies primary speaker identity (`primary_speaker_id`), forbids out-of-character participants (`disallowed_speakers`), and enforces boundary constraints (`forbidden_keywords`).
+- **Keyword & Numeric Grounding:** Checks presence of required terminology (`required_keywords`) and validates exact numerical values (`expected_numeric_grounding`).
+- **Tool-Call Correctness:** Validates tool invocation names (`required_tool_call`) and exact argument dictionaries (`expected_tool_args`).
+- **Structured Tool-Result Assertions:** Checks field values (`expected_tool_result`), enforces mandatory field presence (`required_tool_result_fields`), and validates non-emptiness (`require_nonempty_tool_result`).
+- **Nested Path Verification:** Deterministically checks nested objects and arrays using dot-separated and indexed paths (`expected_tool_result_paths`, `required_tool_result_paths`, e.g. `metadata.status`, `documents[0].id`) with strict type equality (no bool/int or str/int coercion) and explicit null distinction.
+- **Scenario Alignment Verification:** Automatically verifies that required user prompts appear in the transcript in proper order before evaluating agent responses.
+- **Correlation Integrity:** Correlates tool calls and tool results strictly by request ID or turn index, returning `INCONCLUSIVE` (`TOOL_RESULT_AMBIGUOUS`) rather than silently guessing among ambiguous results.
 
-### Configuration on Windows PowerShell:
-```powershell
-$env:ELEVENLABS_API_KEY = "sk_..."
-$env:ELEVENLABS_AGENT_ID = "agent_..."
-$env:ELEVENLABS_CONVERSATION_ID = "conv_..."
+### 4.2 Transparent Measurement Disclosures & Honest Boundaries
+To maintain rigorous scientific integrity, VoiceBench explicitly partitions timing and provenance:
+- **Virtual Simulation (`timing_mode="virtual_simulation"`):** Used for local offline mocks with zero conflation with real wall-clock latency.
+- **Provider-Reported Transcript Offsets (`timing_mode="target_reported_call_relative"`, `event_provenance="target_reported"`):** Call-relative offsets reported by ElevenLabs (`time_in_call_secs`). VoiceBench **never** presents these as client-observed wall-clock latency.
+- **Client-Observed REST Latency (`event_provenance="client_observed"`):** Monotonically measured fetch duration of REST payloads (`fetch_latency_ms`).
+- **Honest Limitations:**
+  - *No Fabricated Audio Interruption Measurements:* REST conversation details provide call-relative message timestamps, not sub-second acoustic cancellation timestamps. Claiming audio barge-in yield measurement without live bidirectional audio WebSocket instrumentation would be dishonest; VoiceBench explicitly rejects this scenario with `UnsupportedCapabilityError` (`INCONCLUSIVE`).
+  - *Single-Agent vs. Multi-Agent Scope:* ElevenLabs ConvAI sessions are single-agent. Genuine multi-agent floor arbitration across multiple live agents is not claimed.
+  - *Provider-Native Testing API Scope:* Native ElevenLabs Agent Testing API endpoints (`/v1/convai/agent-testing`) are maintained in modular dry-run preview mode and are not claimed as verified for this submission.
+
+### 4.3 Configuration:
+```bash
+# Set environment variables or place in .env:
+ELEVENLABS_API_KEY="sk_..."
+ELEVENLABS_AGENT_ID="agent_..."
+ELEVENLABS_CONVERSATION_ID="conv_..."
 ```
 
-> **Evaluation Workflow:** To evaluate a live ElevenLabs conversation, specify a real conversation ID using `--conversation-id` or `$env:ELEVENLABS_CONVERSATION_ID`. VoiceBench queries `GET /v1/convai/conversations/{conversation_id}` strictly in read-only mode — it never initiates outbound calls or creates billable resources. If no conversation ID is provided, VoiceBench reports a transparent `INCONCLUSIVE` configuration error rather than sending fabricated identifiers. Accidental reuse of a single conversation across a multi-scenario suite is strictly prevented.
+> **Evaluation Workflow:** To evaluate a live ElevenLabs conversation, specify a real completed conversation ID using `--conversation-id` or `$env:ELEVENLABS_CONVERSATION_ID`. VoiceBench queries `GET /v1/convai/conversations/{conversation_id}` strictly in read-only mode — it never initiates outbound calls or creates billable resources. If no conversation ID is provided, VoiceBench reports a transparent `INCONCLUSIVE` configuration error rather than sending fabricated identifiers. Accidental reuse of a single conversation across a multi-scenario suite is strictly prevented.
+
+### 4.4 Official ElevenLabs Python SDK Client (`voicebench.elevenlabs_client`)
+VoiceBench includes an official ElevenLabs SDK client wrapper (`voicebench/elevenlabs_client.py`). It securely loads credentials from `.env` using `python-dotenv` without hardcoding keys:
+```python
+from voicebench.elevenlabs_client import client
+
+# Safe, read-only authentication check (does not consume generation credits):
+user = client.user.get()
+print("Authenticated user tier:", user.subscription.tier)
+```
 
 ---
 
-## 5. Current Test Scenarios
+## 5. Current Scenarios
 
-The suite implements six core scenarios targeting six distinct multi-agent failure categories:
+VoiceBench provides six canonical roundtable scenarios targeting core multi-agent conversational challenges, plus an aligned live smoke scenario:
 
+### Canonical Roundtable Suite (`scenarios/roundtable/`)
 | Scenario ID | Name | Failure Category | Target Behavior Tested |
 | :--- | :--- | :--- | :--- |
 | `SCEN-ROUT-01` | **Targeted Expert Addressed-Routing** | `FAIL-ROUT` | Addressing Dr. Aris causes only Dr. Aris to respond. |
@@ -169,33 +192,34 @@ The suite implements six core scenarios targeting six distinct multi-agent failu
 | `SCEN-TOOL-05` | **Tool-Call Correctness & Grounding**| `FAIL-TOOL` | Agent calls `fetch_market_price` with `ERCOT` and speaks `$34.50`. |
 | `SCEN-COORD-06`| **Multi-Speaker Floor Arbitration** | `FAIL-COORD` | Panelists alternate speech without overlap ($>200\text{ ms}$) or dead air. |
 
+### Aligned Live Smoke Scenario (`scenarios/live/elevenlabs/`)
+| Scenario ID | Name | Failure Category | Target Behavior Tested |
+| :--- | :--- | :--- | :--- |
+| `SCEN-ELEVEN-SMOKE-01` | **ElevenLabs Live Smoke Test** | `FAIL-TOOL` | Validates live agent knowledge base query on conversation ID retrieval with clean handling of empty result states. |
+
 ---
 
 ## 6. Automated Test Suite
 
-VoiceBench is backed by a comprehensive automated test suite verifying scenario validation, synthetic traces, mock target adapters, HTTP targets, ElevenLabs integration, error classification, timing integrity, and regression diffing:
+VoiceBench is backed by a comprehensive automated test suite verifying scenario validation, synthetic traces, mock target adapters, Generic HTTP targets, ElevenLabs integration, structured tool-result assertions, nested paths, correlation integrity, error classification, timing integrity, and regression diffing:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-**Results:** `63 passed in ~10.7s` (100% pass rate, 0 warnings).
+**Results:** `131 passed in ~12.4s` (100% pass rate, 0 warnings).
 
 ---
 
 ## 7. Documentation Suite
 
-- **[PRESENTATION.md](docs/PRESENTATION.md):** 7-slide technical presentation and architecture walkthrough.
-- **[PRIOR_ART_REVIEW.md](docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
-- **[PROJECT_DECISION.md](docs/PROJECT_DECISION.md):** Track scope selection (Problem 1 AI Roundtable) and judging criteria alignment.
-- **[EVALUATION_PLAN.md](docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** System architecture, interfaces, and diff specifications.
+- **[DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md):** 3-minute reproducible judging demonstration script.
+- **[SUBMISSION_STATUS.md](docs/SUBMISSION_STATUS.md):** Submission readiness audit, verified capabilities, and honesty disclosures.
+- **[PRESENTATION.md](docs/PRESENTATION.md):** Technical presentation and architecture walkthrough.
 - **[ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, ElevenLabs adapter guide, timing rules, and reference server.
-- **[ELEVENLABS_INTEGRATION_DECISION.md](docs/ELEVENLABS_INTEGRATION_DECISION.md):** Official API references, integration scope, and capability decisions.
-- **[MILESTONE_PLAN.md](docs/MILESTONE_PLAN.md):** Implementation roadmap for the hackathon.
-- **[MILESTONE_1_VERIFICATION.md](docs/MILESTONE_1_VERIFICATION.md):** Milestone 1 verification gate audit.
-- **[MILESTONE_2_VERIFICATION.md](docs/MILESTONE_2_VERIFICATION.md):** Milestone 2 verification gate audit.
-- **[MILESTONE_3_VERIFICATION.md](docs/MILESTONE_3_VERIFICATION.md):** Milestone 3 verification gate audit and safe publishing readiness.
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** System architecture, interfaces, and diff specifications.
+- **[PRIOR_ART_REVIEW.md](docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
+- **[EVALUATION_PLAN.md](docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
 
 ---
 

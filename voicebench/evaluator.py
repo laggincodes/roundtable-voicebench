@@ -8,8 +8,9 @@ Supports PASS, FAIL, INCONCLUSIVE, and NOT_RUN.
 from __future__ import annotations
 
 import datetime
+import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from voicebench.models import (
     ConversationTrace,
@@ -20,6 +21,371 @@ from voicebench.models import (
     ScenarioResult,
     TestStatus,
 )
+
+
+def normalize_transcript_text(text: Optional[str]) -> str:
+    """Normalize text for deterministic scenario alignment comparison.
+
+    Performs explicit, documented normalization:
+      - Strips leading and trailing whitespace
+      - Converts to lower-case
+      - Replaces punctuation characters with spaces
+      - Collapses consecutive whitespace characters into a single space
+    """
+    if not text:
+        return ""
+    t = text.lower()
+    t = re.sub(r"[^\w\s]", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def validate_scenario_input_alignment(
+    scenario: Scenario,
+    trace: ConversationTrace,
+) -> Tuple[bool, Optional[str], Optional[int], List[str]]:
+    """Validate that required scenario user turns are observed in order within the transcript.
+
+    Returns:
+        (is_aligned, failure_reason, failed_turn_index, observed_user_texts)
+    """
+    required_user_turns = [t for t in scenario.turns if t.speaker in ("user", "human_user")]
+    if not required_user_turns:
+        return True, None, None, []
+
+    user_events = [
+        e for e in trace.events
+        if e.event_type == EventType.USER_INPUT or e.speaker_id in ("user", "human_user")
+    ]
+    observed_user_texts = [str(e.payload) if e.payload is not None else "" for e in user_events]
+
+    if not user_events:
+        return (
+            False,
+            f"No user input turns observed in conversation transcript (required {len(required_user_turns)} turn(s)).",
+            required_user_turns[0].turn_index,
+            observed_user_texts,
+        )
+
+    norm_observed = [normalize_transcript_text(t) for t in observed_user_texts]
+    current_idx = 0
+
+    for req_turn in required_user_turns:
+        norm_req = normalize_transcript_text(req_turn.payload)
+        match_idx = None
+        for j in range(current_idx, len(norm_observed)):
+            if norm_observed[j] == norm_req:
+                match_idx = j
+                break
+
+        if match_idx is not None:
+            current_idx = match_idx + 1
+        else:
+            earlier_match = any(norm_observed[k] == norm_req for k in range(0, current_idx))
+            if earlier_match:
+                return (
+                    False,
+                    f"Required scenario user input (turn {req_turn.turn_index}: '{req_turn.payload}') "
+                    "appeared out of order in conversation transcript.",
+                    req_turn.turn_index,
+                    observed_user_texts,
+                )
+            else:
+                return (
+                    False,
+                    f"Required scenario user input (turn {req_turn.turn_index}: '{req_turn.payload}') "
+                    "was not observed in conversation transcript.",
+                    req_turn.turn_index,
+                    observed_user_texts,
+                )
+
+    return True, None, None, observed_user_texts
+
+
+def is_tool_result_empty(result_data: Any) -> bool:
+    """Determine whether a tool result payload is considered empty.
+
+    Recognizes standard empty constructs:
+      - None
+      - Empty strings, lists, tuples, sets, or dicts
+      - Tool result payloads with zero chunk count or explicit empty status
+      - Explicit empty item/document lists
+    """
+    if result_data is None:
+        return True
+    if isinstance(result_data, (str, list, tuple, set)) and len(result_data) == 0:
+        return True
+    if isinstance(result_data, dict):
+        if len(result_data) == 0:
+            return True
+        if result_data.get("chunk_count") == 0:
+            return True
+        status_val = str(result_data.get("status", "")).strip().lower()
+        if status_val in ("no_matching_documents", "no_matching_docs", "empty", "not_found"):
+            return True
+        for list_key in ("items", "results", "documents", "data"):
+            if list_key in result_data and isinstance(result_data[list_key], list) and len(result_data[list_key]) == 0:
+                return True
+        return False
+    return False
+
+
+def extract_tool_result_payload(tr: TraceEvent) -> Tuple[Any, bool, Optional[str], bool]:
+    """Extract result data, error status, error message, and unparseable flag from a TOOL_RESULT event.
+
+    Returns:
+        (result_data, is_error, error_message, is_unparseable)
+    """
+    if not isinstance(tr.payload, dict):
+        return tr.payload, False, None, False
+
+    is_error = bool(tr.payload.get("is_error", False))
+    raw_err = tr.payload.get("error") or tr.payload.get("raw_error_message")
+
+    res_raw = tr.payload.get("result") if "result" in tr.payload else tr.payload
+
+    if isinstance(res_raw, str) and res_raw.strip().startswith(("{", "[")):
+        try:
+            parsed = json.loads(res_raw)
+            return parsed, is_error, raw_err, False
+        except Exception:
+            return res_raw, is_error, raw_err, True
+
+    return res_raw, is_error, raw_err, False
+
+
+def parse_and_validate_path(path: str) -> Tuple[bool, Optional[str], List[Union[str, int]]]:
+    """Parse and validate a nested tool result path expression.
+
+    Grammar:
+      path ::= segment ('.' segment | '[' index ']')*
+      segment ::= identifier | '[' index ']'
+      identifier ::= [a-zA-Z0-9_-]+
+      index ::= [0-9]+
+
+    Returns:
+        (is_valid, error_message, tokens)
+    """
+    if not isinstance(path, str):
+        return False, f"Path must be a string, got {type(path).__name__}", []
+    p = path.strip()
+    if not p:
+        return False, "Path expression cannot be empty", []
+    if " " in p or "\t" in p or "\n" in p:
+        return False, f"Whitespace is not permitted in path expression: '{path}'", []
+    if p.startswith("."):
+        return False, f"Path cannot start with a dot: '{path}'", []
+    if p.endswith("."):
+        return False, f"Path cannot end with a dot: '{path}'", []
+    if ".." in p:
+        return False, f"Consecutive dots are not allowed: '{path}'", []
+
+    tokens: List[Union[str, int]] = []
+    i = 0
+    n = len(p)
+    while i < n:
+        if p[i] == ".":
+            i += 1
+            if i >= n or p[i] == ".":
+                return False, f"Invalid dot placement in path: '{path}'", []
+            continue
+
+        if p[i] == "[":
+            close_idx = p.find("]", i)
+            if close_idx == -1:
+                return False, f"Unclosed bracket '[' in path: '{path}'", []
+            idx_str = p[i + 1 : close_idx]
+            if not idx_str:
+                return False, f"Empty index '[]' in path: '{path}'", []
+            if not idx_str.isdigit():
+                return False, f"Array index must be a non-negative integer, got '{idx_str}' in path: '{path}'", []
+            tokens.append(int(idx_str))
+            i = close_idx + 1
+            if i < n and p[i] not in (".", "["):
+                return False, f"Missing dot separator after bracket index at '{p[i:]}' in path: '{path}'", []
+            continue
+
+        if p[i] == "]":
+            return False, f"Unexpected closing bracket ']' in path: '{path}'", []
+
+        start = i
+        while i < n and p[i] not in (".", "[", "]"):
+            if not (p[i].isalnum() or p[i] in ("_", "-")):
+                return False, f"Invalid character '{p[i]}' in path: '{path}'", []
+            i += 1
+        key = p[start:i]
+        if not key:
+            return False, f"Invalid empty segment in path: '{path}'", []
+        tokens.append(key)
+
+    if not tokens:
+        return False, f"No valid tokens parsed from path: '{path}'", []
+
+    return True, None, tokens
+
+
+def resolve_path_tokens(data: Any, tokens: List[Union[str, int]]) -> Tuple[bool, Any]:
+    """Resolve parsed tokens against data without coercing types.
+
+    Returns:
+        (exists: bool, value: Any)
+    """
+    curr = data
+    for token in tokens:
+        if isinstance(token, str):
+            if not isinstance(curr, dict) or token not in curr:
+                return False, None
+            curr = curr[token]
+        elif isinstance(token, int):
+            if not isinstance(curr, list) or token < 0 or token >= len(curr):
+                return False, None
+            curr = curr[token]
+        else:
+            return False, None
+    return True, curr
+
+
+def values_are_equal_strict(actual: Any, expected: Any) -> bool:
+    """Compare two values deterministically without coercing incompatible types.
+
+    Distinguishes:
+      - bool from int/float (e.g. True != 1, False != 0)
+      - string from number (e.g. "34.5" != 34.5)
+      - null/None from non-null
+    Allows int/float numerical equivalence if neither is a bool (e.g. 34 == 34.0).
+    """
+    if expected is None:
+        return actual is None
+    if actual is None:
+        return False
+
+    if isinstance(expected, bool) or isinstance(actual, bool):
+        return type(actual) is type(expected) and actual == expected
+
+    if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
+        return actual == expected
+
+    if type(actual) is not type(expected):
+        return False
+
+    if isinstance(expected, dict):
+        if len(actual) != len(expected):
+            return False
+        return all(k in actual and values_are_equal_strict(actual[k], v) for k, v in expected.items())
+
+    if isinstance(expected, list):
+        if len(actual) != len(expected):
+            return False
+        return all(values_are_equal_strict(a, e) for a, e in zip(actual, expected))
+
+    return actual == expected
+
+
+def correlate_tool_result(
+    trace: ConversationTrace,
+    tool_call: TraceEvent,
+    required_tool: str,
+) -> Tuple[Optional[TraceEvent], Optional[str]]:
+    """Harden correlation between a tool call and its corresponding TOOL_RESULT event.
+
+    Matching hierarchy:
+      1. Explicit request_id correlation:
+         - If tool_call has request_id, find results matching that request_id.
+         - Validates that tool name (if present) agrees; rejects conflicting tools.
+         - Rejects multiple results claiming the same request_id as ambiguous.
+         - Does not fall back to other results with conflicting request_ids.
+      2. Tool name and turn_index correlation (when request_id is not present on tool call):
+         - Excludes results with explicit request_ids belonging to other calls.
+         - Excludes results explicitly belonging to a different tool.
+         - Correlates by turn_index if unambiguous.
+      3. Single compatible result fallback (unambiguous trace).
+      4. Ambiguity / Conflict detection:
+         - Returns (None, error_reason) if multiple candidate results are equally plausible or if identifiers conflict.
+
+    Returns:
+        (matched_result, ambiguity_or_conflict_error_message)
+    """
+    candidate_results = [e for e in trace.events if e.event_type == EventType.TOOL_RESULT]
+    if not candidate_results:
+        return None, None
+
+    tc_payload = tool_call.payload if isinstance(tool_call.payload, dict) else {}
+    tc_req_id = tc_payload.get("request_id")
+
+    # Case 1: Tool call has an explicit request_id
+    if tc_req_id:
+        req_id_matches = [
+            tr for tr in candidate_results
+            if isinstance(tr.payload, dict) and tr.payload.get("request_id") == tc_req_id
+        ]
+        if len(req_id_matches) > 1:
+            return None, (
+                f"Ambiguous tool result correlation: multiple tool results ({len(req_id_matches)}) "
+                f"found sharing request_id '{tc_req_id}'."
+            )
+        if len(req_id_matches) == 1:
+            res_event = req_id_matches[0]
+            if isinstance(res_event.payload, dict):
+                res_tool = res_event.payload.get("tool")
+                if res_tool and res_tool != required_tool:
+                    return None, (
+                        f"Conflicting tool correlation: result with request_id '{tc_req_id}' "
+                        f"belongs to tool '{res_tool}', but expected tool '{required_tool}'."
+                    )
+            return res_event, None
+
+        # 0 matches with this request_id: check for conflicts
+        conflicting_results = [
+            tr for tr in candidate_results
+            if isinstance(tr.payload, dict) and tr.payload.get("request_id") and tr.payload.get("request_id") != tc_req_id
+        ]
+        if conflicting_results:
+            conflicting_ids = [r.payload.get("request_id") for r in conflicting_results]
+            return None, (
+                f"Conflicting tool correlation: tool call specified request_id '{tc_req_id}', "
+                f"but available tool results have non-matching request_id identifiers ({conflicting_ids})."
+            )
+        return None, None
+
+    # Case 2: Tool call does not specify request_id
+    compatible: List[TraceEvent] = []
+    for tr in candidate_results:
+        if isinstance(tr.payload, dict):
+            res_tool = tr.payload.get("tool")
+            if res_tool and res_tool != required_tool:
+                continue
+            r_id = tr.payload.get("request_id")
+            if r_id:
+                other_calls = [
+                    c for c in trace.get_tool_calls()
+                    if c != tool_call and isinstance(c.payload, dict) and c.payload.get("request_id") == r_id
+                ]
+                if other_calls:
+                    continue
+        compatible.append(tr)
+
+    if not compatible:
+        return None, None
+
+    # Try correlation by turn_index
+    if tool_call.turn_index is not None:
+        turn_matches = [tr for tr in compatible if tr.turn_index == tool_call.turn_index]
+        if len(turn_matches) == 1:
+            return turn_matches[0], None
+        if len(turn_matches) > 1:
+            return None, (
+                f"Ambiguous tool result correlation: multiple tool results ({len(turn_matches)}) "
+                f"found for tool '{required_tool}' at turn {tool_call.turn_index} without request_id correlation."
+            )
+
+    # Fallback to single compatible result if unambiguous
+    if len(compatible) == 1:
+        return compatible[0], None
+
+    return None, (
+        f"Ambiguous tool result correlation: {len(compatible)} candidate tool results found for "
+        f"tool '{required_tool}' without distinct correlation identifiers."
+    )
 
 
 class Evaluator:
@@ -36,6 +402,7 @@ class Evaluator:
         target_type: str = "local_mock",
         target_config: str = "baseline",
         timing_mode: Optional[str] = None,
+        validate_input_alignment: Optional[bool] = None,
     ) -> ScenarioResult:
         """Evaluate a scenario against a captured trace and preserve resolved timing mode."""
         res = self._evaluate_internal(
@@ -44,6 +411,7 @@ class Evaluator:
             run_id=run_id,
             target_type=target_type,
             target_config=target_config,
+            validate_input_alignment=validate_input_alignment,
         )
         resolved_timing = timing_mode or (trace.timing_mode if trace else "virtual_simulation")
         res.timing_mode = resolved_timing
@@ -56,6 +424,7 @@ class Evaluator:
         run_id: str = "",
         target_type: str = "local_mock",
         target_config: str = "baseline",
+        validate_input_alignment: Optional[bool] = None,
     ) -> ScenarioResult:
         """Internal deterministic evaluation logic."""
         timestamp_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -126,6 +495,43 @@ class Evaluator:
             "yield_latency_ms": None,
             "cross_talk_overlap_ms": None,
         }
+
+        # 3b. Scenario-to-Transcript Input Alignment Preflight Check
+        # Enforced for post-hoc / recorded conversation targets (e.g. ElevenLabs)
+        effective_target_type = trace.target_type if trace and trace.target_type else target_type
+        should_validate_alignment = (
+            validate_input_alignment is True
+            or (
+                validate_input_alignment is not False
+                and effective_target_type in ("elevenlabs", "elevenlabs_convai")
+            )
+        )
+        if should_validate_alignment:
+            is_aligned, failure_reason, failed_turn_idx, observed_user_texts = validate_scenario_input_alignment(
+                scenario, trace
+            )
+            if not is_aligned:
+                return ScenarioResult(
+                    scenario_id=scenario.id,
+                    scenario_name=scenario.name,
+                    status=TestStatus.INCONCLUSIVE,
+                    failure_category=FailureCategory.FAIL_INFRA.value,
+                    reason=f"SCENARIO_INPUT_NOT_OBSERVED: {failure_reason}",
+                    evidence=Evidence(
+                        turn_index=failed_turn_idx,
+                        timestamp_ms=None,
+                        speaker_id="user",
+                        event_type=EventType.USER_INPUT.value,
+                        quote_or_payload={"observed_user_inputs": observed_user_texts},
+                        notes="Conversation transcript does not contain the required scenario user inputs in expected order.",
+                    ),
+                    metrics=metrics,
+                    target_type=target_type,
+                    target_config=target_config,
+                    run_id=run_id,
+                    timestamp_utc=timestamp_utc,
+                    software_version=self.software_version,
+                )
 
         # 4. Check Addressed-Agent / Primary Speaker Routing
         if expectations.primary_speaker_id:
@@ -507,28 +913,91 @@ class Evaluator:
                             software_version=self.software_version,
                         )
 
-            # Check if tool result reported an execution error
-            matching_tool_results = [
-                tr for tr in trace.events
-                if tr.event_type == EventType.TOOL_RESULT and isinstance(tr.payload, dict) and tr.payload.get("tool") == expectations.required_tool_call
-            ]
-            if matching_tool_results:
-                errored = [tr for tr in matching_tool_results if tr.payload.get("is_error")]
-                if errored:
-                    err_tr = errored[0]
-                    err_detail = err_tr.payload.get("error") or err_tr.payload.get("result") or "Tool execution error"
+            # Correlate and validate tool result evidence
+            has_result_assertions = (
+                expectations.expected_tool_result is not None
+                or expectations.required_tool_result_fields is not None
+                or expectations.require_nonempty_tool_result is not None
+                or expectations.expected_tool_result_paths is not None
+                or expectations.required_tool_result_paths is not None
+            )
+
+            primary_tc = matching_tool[0]
+            matched_tr, correlation_err = correlate_tool_result(
+                trace=trace,
+                tool_call=primary_tc,
+                required_tool=expectations.required_tool_call,
+            )
+
+            if correlation_err is not None:
+                return ScenarioResult(
+                    scenario_id=scenario.id,
+                    scenario_name=scenario.name,
+                    status=TestStatus.INCONCLUSIVE,
+                    failure_category=FailureCategory.FAIL_INFRA.value,
+                    reason=correlation_err,
+                    evidence=Evidence(
+                        turn_index=primary_tc.turn_index,
+                        timestamp_ms=primary_tc.timestamp_ms,
+                        speaker_id=primary_tc.speaker_id,
+                        event_type="TOOL_RESULT_AMBIGUOUS",
+                        quote_or_payload=None,
+                        notes=correlation_err,
+                    ),
+                    metrics=metrics,
+                    target_type=target_type,
+                    target_config=target_config,
+                    run_id=run_id,
+                    timestamp_utc=timestamp_utc,
+                    software_version=self.software_version,
+                )
+
+            # Missing Result Evidence Handling
+            if matched_tr is None:
+                if has_result_assertions:
+                    return ScenarioResult(
+                        scenario_id=scenario.id,
+                        scenario_name=scenario.name,
+                        status=TestStatus.INCONCLUSIVE,
+                        failure_category=FailureCategory.FAIL_INFRA.value,
+                        reason=(
+                            f"Missing tool result evidence: required tool '{expectations.required_tool_call}' was called, "
+                            "but no corresponding tool result was captured in the conversation trace."
+                        ),
+                        evidence=Evidence(
+                            turn_index=primary_tc.turn_index,
+                            timestamp_ms=primary_tc.timestamp_ms,
+                            speaker_id=primary_tc.speaker_id,
+                            event_type="TOOL_RESULT_MISSING",
+                            quote_or_payload=None,
+                            notes="Tool result assertion specified but no result event found in trace.",
+                        ),
+                        metrics=metrics,
+                        target_type=target_type,
+                        target_config=target_config,
+                        run_id=run_id,
+                        timestamp_utc=timestamp_utc,
+                        software_version=self.software_version,
+                    )
+            else:
+                # Extract result data, error status, and parseability
+                res_data, is_err, err_detail, is_unparseable = extract_tool_result_payload(matched_tr)
+
+                # Check if tool result reported an execution error
+                if is_err:
+                    err_msg = err_detail or res_data or "Tool execution error"
                     return ScenarioResult(
                         scenario_id=scenario.id,
                         scenario_name=scenario.name,
                         status=TestStatus.FAIL,
                         failure_category=FailureCategory.FAIL_TOOL.value,
-                        reason=f"Tool execution returned an error for '{expectations.required_tool_call}': {err_detail}",
+                        reason=f"Tool execution returned an error for '{expectations.required_tool_call}': {err_msg}",
                         evidence=Evidence(
-                            turn_index=err_tr.turn_index,
-                            timestamp_ms=err_tr.timestamp_ms,
-                            speaker_id=err_tr.speaker_id,
+                            turn_index=matched_tr.turn_index,
+                            timestamp_ms=matched_tr.timestamp_ms,
+                            speaker_id=matched_tr.speaker_id,
                             event_type="TOOL_RESULT_ERROR",
-                            quote_or_payload=err_tr.payload,
+                            quote_or_payload=matched_tr.payload,
                             notes="Tool invocation failed execution during conversation.",
                         ),
                         metrics=metrics,
@@ -538,6 +1007,278 @@ class Evaluator:
                         timestamp_utc=timestamp_utc,
                         software_version=self.software_version,
                     )
+
+                # Check if result evidence is unparseable when assertions are requested
+                if is_unparseable and has_result_assertions:
+                    return ScenarioResult(
+                        scenario_id=scenario.id,
+                        scenario_name=scenario.name,
+                        status=TestStatus.INCONCLUSIVE,
+                        failure_category=FailureCategory.FAIL_INFRA.value,
+                        reason=f"Unparseable tool result evidence for tool '{expectations.required_tool_call}': payload string is not valid JSON.",
+                        evidence=Evidence(
+                            turn_index=matched_tr.turn_index,
+                            timestamp_ms=matched_tr.timestamp_ms,
+                            speaker_id=matched_tr.speaker_id,
+                            event_type="TOOL_RESULT_UNPARSEABLE",
+                            quote_or_payload=matched_tr.payload,
+                            notes="Tool result content could not be parsed for structured evaluation.",
+                        ),
+                        metrics=metrics,
+                        target_type=target_type,
+                        target_config=target_config,
+                        run_id=run_id,
+                        timestamp_utc=timestamp_utc,
+                        software_version=self.software_version,
+                    )
+
+                # Check explicit non-empty result requirement
+                if expectations.require_nonempty_tool_result is True:
+                    if is_tool_result_empty(res_data):
+                        return ScenarioResult(
+                            scenario_id=scenario.id,
+                            scenario_name=scenario.name,
+                            status=TestStatus.FAIL,
+                            failure_category=FailureCategory.FAIL_TOOL.value,
+                            reason=f"Tool result for '{expectations.required_tool_call}' was empty, but scenario explicitly required a non-empty result.",
+                            evidence=Evidence(
+                                turn_index=matched_tr.turn_index,
+                                timestamp_ms=matched_tr.timestamp_ms,
+                                speaker_id=matched_tr.speaker_id,
+                                event_type="TOOL_RESULT_EMPTY",
+                                quote_or_payload=res_data,
+                                notes="Expected non-empty result payload.",
+                            ),
+                            metrics=metrics,
+                            target_type=target_type,
+                            target_config=target_config,
+                            run_id=run_id,
+                            timestamp_utc=timestamp_utc,
+                            software_version=self.software_version,
+                        )
+
+                # Check required tool result fields
+                if expectations.required_tool_result_fields:
+                    if not isinstance(res_data, dict):
+                        return ScenarioResult(
+                            scenario_id=scenario.id,
+                            scenario_name=scenario.name,
+                            status=TestStatus.FAIL,
+                            failure_category=FailureCategory.FAIL_TOOL.value,
+                            reason=f"Tool result is not a dictionary; cannot verify required fields {expectations.required_tool_result_fields}.",
+                            evidence=Evidence(
+                                turn_index=matched_tr.turn_index,
+                                timestamp_ms=matched_tr.timestamp_ms,
+                                speaker_id=matched_tr.speaker_id,
+                                event_type="TOOL_RESULT_SCHEMA_MISMATCH",
+                                quote_or_payload=res_data,
+                                notes="Result payload must be a mapping to verify required fields.",
+                            ),
+                            metrics=metrics,
+                            target_type=target_type,
+                            target_config=target_config,
+                            run_id=run_id,
+                            timestamp_utc=timestamp_utc,
+                            software_version=self.software_version,
+                        )
+                    for field_name in expectations.required_tool_result_fields:
+                        if field_name not in res_data or res_data[field_name] is None:
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.FAIL,
+                                failure_category=FailureCategory.FAIL_TOOL.value,
+                                reason=f"Tool result missing required field '{field_name}' for tool '{expectations.required_tool_call}'.",
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_SCHEMA_MISMATCH",
+                                    quote_or_payload=res_data,
+                                    notes=f"Required field '{field_name}' not found or null in result.",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
+
+                # Check expected tool result key-value pairs
+                if expectations.expected_tool_result:
+                    if not isinstance(res_data, dict):
+                        return ScenarioResult(
+                            scenario_id=scenario.id,
+                            scenario_name=scenario.name,
+                            status=TestStatus.FAIL,
+                            failure_category=FailureCategory.FAIL_TOOL.value,
+                            reason=f"Tool result is not a dictionary; cannot match expected fields: {expectations.expected_tool_result}.",
+                            evidence=Evidence(
+                                turn_index=matched_tr.turn_index,
+                                timestamp_ms=matched_tr.timestamp_ms,
+                                speaker_id=matched_tr.speaker_id,
+                                event_type="TOOL_RESULT_MISMATCH",
+                                quote_or_payload=res_data,
+                                notes="Result payload must be a mapping to match expected fields.",
+                            ),
+                            metrics=metrics,
+                            target_type=target_type,
+                            target_config=target_config,
+                            run_id=run_id,
+                            timestamp_utc=timestamp_utc,
+                            software_version=self.software_version,
+                        )
+                    for k, expected_v in expectations.expected_tool_result.items():
+                        actual_v = res_data.get(k)
+                        if not values_are_equal_strict(actual_v, expected_v):
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.FAIL,
+                                failure_category=FailureCategory.FAIL_TOOL.value,
+                                reason=f"Tool result field mismatch for '{k}': expected '{expected_v}', got '{actual_v}'.",
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_MISMATCH",
+                                    quote_or_payload=res_data,
+                                    notes=f"Expected result field '{k}' to equal '{expected_v}', but got '{actual_v}'.",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
+
+                # Check required tool result paths (nested existence checks)
+                if expectations.required_tool_result_paths:
+                    for path_expr in expectations.required_tool_result_paths:
+                        ok, err_msg, tokens = parse_and_validate_path(path_expr)
+                        if not ok:
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.INCONCLUSIVE,
+                                failure_category=FailureCategory.FAIL_INFRA.value,
+                                reason=f"Invalid path expression in required_tool_result_paths: {err_msg}",
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_SCHEMA_MISMATCH",
+                                    quote_or_payload=path_expr,
+                                    notes=f"Syntax error in path expression: {err_msg}",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
+                        exists, val = resolve_path_tokens(res_data, tokens)
+                        if not exists:
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.FAIL,
+                                failure_category=FailureCategory.FAIL_TOOL.value,
+                                reason=f"Tool result missing required path '{path_expr}' for tool '{expectations.required_tool_call}'.",
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_SCHEMA_MISMATCH",
+                                    quote_or_payload=res_data,
+                                    notes=f"Required path '{path_expr}' was not found in result payload.",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
+
+                # Check expected tool result paths (nested value assertions)
+                if expectations.expected_tool_result_paths:
+                    for path_expr, expected_v in expectations.expected_tool_result_paths.items():
+                        ok, err_msg, tokens = parse_and_validate_path(path_expr)
+                        if not ok:
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.INCONCLUSIVE,
+                                failure_category=FailureCategory.FAIL_INFRA.value,
+                                reason=f"Invalid path expression in expected_tool_result_paths: {err_msg}",
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_MISMATCH",
+                                    quote_or_payload=path_expr,
+                                    notes=f"Syntax error in path expression: {err_msg}",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
+                        exists, actual_v = resolve_path_tokens(res_data, tokens)
+                        if not exists:
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.FAIL,
+                                failure_category=FailureCategory.FAIL_TOOL.value,
+                                reason=f"Tool result path '{path_expr}' was not found in result payload for tool '{expectations.required_tool_call}'.",
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_MISMATCH",
+                                    quote_or_payload=res_data,
+                                    notes=f"Path '{path_expr}' could not be resolved in result payload.",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
+                        if not values_are_equal_strict(actual_v, expected_v):
+                            return ScenarioResult(
+                                scenario_id=scenario.id,
+                                scenario_name=scenario.name,
+                                status=TestStatus.FAIL,
+                                failure_category=FailureCategory.FAIL_TOOL.value,
+                                reason=(
+                                    f"Tool result value mismatch at path '{path_expr}': "
+                                    f"expected '{expected_v}' ({type(expected_v).__name__}), "
+                                    f"got '{actual_v}' ({type(actual_v).__name__})."
+                                ),
+                                evidence=Evidence(
+                                    turn_index=matched_tr.turn_index,
+                                    timestamp_ms=matched_tr.timestamp_ms,
+                                    speaker_id=matched_tr.speaker_id,
+                                    event_type="TOOL_RESULT_MISMATCH",
+                                    quote_or_payload=res_data,
+                                    notes=f"Expected value at '{path_expr}' was '{expected_v}', but observed '{actual_v}'.",
+                                ),
+                                metrics=metrics,
+                                target_type=target_type,
+                                target_config=target_config,
+                                run_id=run_id,
+                                timestamp_utc=timestamp_utc,
+                                software_version=self.software_version,
+                            )
 
             # Check numeric grounding in spoken text
             if expectations.expected_numeric_grounding:

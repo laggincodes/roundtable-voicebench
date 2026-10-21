@@ -81,6 +81,11 @@ class ScenarioExpectations:
     max_dead_air_ms: Optional[float] = None
     require_topic_recovery: Optional[bool] = None
     recovery_keywords: List[str] = field(default_factory=list)
+    expected_tool_result: Optional[Dict[str, Any]] = None
+    required_tool_result_fields: Optional[List[str]] = None
+    require_nonempty_tool_result: Optional[bool] = None
+    expected_tool_result_paths: Optional[Dict[str, Any]] = None
+    required_tool_result_paths: Optional[List[str]] = None
 
 
 @dataclass

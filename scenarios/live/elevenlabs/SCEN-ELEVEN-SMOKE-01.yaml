@@ -1,0 +1,25 @@
+schema_version: "1.0.0"
+id: "SCEN-ELEVEN-SMOKE-01"
+name: "ElevenLabs Live Tool & Knowledge-Base Smoke Test"
+description: "Narrow single-turn live integration smoke test verifying ElevenLabs ConvAI REST retrieval, prompt alignment, and knowledge_base tool invocation with query argument."
+tags: ["live-smoke", "elevenlabs", "tool-call", "knowledge-base", "single-agent"]
+timeout_seconds: 15.0
+
+preconditions:
+  active_agents:
+    - id: "voicebench_agent"
+      role: "VoiceBench ConvAI Assistant"
+  initial_topic: "Conversation ID lookup and agent knowledge retrieval"
+
+turns:
+  - turn_index: 1
+    speaker: "user"
+    input_type: "text"
+    payload: "where can i find conversation id ?"
+    inject_delay_ms: 0.0
+
+expectations:
+  required_tool_call: "knowledge_base"
+  expected_tool_args:
+    query: "conversation id"
+  required_keywords: ["conversation id"]

@@ -178,11 +178,12 @@ Summary:
 git clone https://github.com/laggincodes/roundtable-voicebench.git
 cd roundtable-voicebench
 
-# 2. Run automated test suite (63 tests, zero external dependencies)
+# 2. Run automated test suite (131 tests, zero external dependencies)
 python -m pytest tests/ -v
 
 # 3. Validate scenarios
 python -m voicebench.cli scenarios validate scenarios/roundtable
+python -m voicebench.cli scenarios validate scenarios/live/elevenlabs
 
 # 4. Run baseline evaluation
 python -m voicebench.cli run --suite scenarios/roundtable --target mock --target-config baseline
@@ -196,4 +197,4 @@ python -m voicebench.cli diff demo/baseline_run.json candidate.json
 - **Public GitHub Repository:** [https://github.com/laggincodes/roundtable-voicebench](https://github.com/laggincodes/roundtable-voicebench)
 - **License:** MIT License (`LICENSE`)
 - **Environment Template:** `.env.example`
-- **Track Record:** 63 automated unit/integration tests passing (100% pass rate).
+- **Track Record:** 131 automated unit/integration tests passing (100% pass rate).

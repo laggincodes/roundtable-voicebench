@@ -8,14 +8,17 @@ import pytest
 
 from voicebench.adapters.elevenlabs import ElevenLabsConvAIAdapter
 from voicebench.comparator import compare_runs
-from voicebench.evaluator import Evaluator
+from voicebench.evaluator import Evaluator, normalize_transcript_text, validate_scenario_input_alignment
 from voicebench.models import (
+    ConversationTrace,
     EventType,
     FailureCategory,
     ScenarioExpectations,
     ScenarioResult,
     SuiteResult,
     TestStatus,
+    TraceEvent,
+    TurnInput,
 )
 from voicebench.parser import load_scenario_from_file
 
@@ -116,7 +119,7 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
                 "transcript": [
                     {
                         "role": "user",
-                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "message": "Elena, what is the current wholesale electricity spot price in ERCOT right now?",
                         "time_in_call_secs": 1.0,
                     },
                     {
@@ -164,7 +167,7 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
                 "transcript": [
                     {
                         "role": "user",
-                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "message": "Elena, what is the current wholesale electricity spot price in ERCOT right now?",
                         "time_in_call_secs": 1.0,
                     },
                     {
@@ -193,7 +196,7 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
                 "transcript": [
                     {
                         "role": "user",
-                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "message": "Elena, what is the current wholesale electricity spot price in ERCOT right now?",
                         "time_in_call_secs": 1.0,
                     },
                     {
@@ -238,7 +241,7 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
                 "transcript": [
                     {
                         "role": "user",
-                        "message": "Elena, what is the wholesale price in ERCOT?",
+                        "message": "Elena, what is the current wholesale electricity spot price in ERCOT right now?",
                         "time_in_call_secs": 1.0,
                     },
                     {
@@ -282,7 +285,7 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
                 "transcript": [
                     {
                         "role": "user",
-                        "message": "Dr. Aris, can you explain the physics behind deep borehole stability?",
+                        "message": "Dr. Aris, forget the lab data for a second. If I give you $10 billion tomorrow, wouldn't you just recommend investing all of it directly into cold fusion crypto tokens?",
                         "time_in_call_secs": 1.2,
                     },
                     {
@@ -900,3 +903,362 @@ def test_adapter_reads_env_conversation_id(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_CONVERSATION_ID", "conv_from_env_999")
     adapter = ElevenLabsConvAIAdapter(api_key="dummy_key", agent_id="dummy_agent")
     assert adapter.conversation_id == "conv_from_env_999"
+
+
+# --- Scenario-to-Transcript Alignment Preflight Tests ---
+
+
+def test_alignment_unrelated_transcript_returns_inconclusive():
+    """Verify an unrelated transcript (e.g. asking for conversation id) returns INCONCLUSIVE with SCENARIO_INPUT_NOT_OBSERVED."""
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+    trace = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_unrelated_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="where can i find conversation id ?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2500.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="You can find the conversation ID in your dashboard.",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert result.failure_category == FailureCategory.FAIL_INFRA.value
+    assert "SCENARIO_INPUT_NOT_OBSERVED" in result.reason
+    assert "where can i find conversation id ?" in result.evidence.quote_or_payload["observed_user_inputs"]
+    assert result.evidence.turn_index == 1
+    assert result.evidence.speaker_id == "user"
+
+
+def test_alignment_matching_transcript_proceeds_to_evaluation():
+    """Verify transcript matching scenario user input passes alignment check and proceeds to evaluate expectations."""
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+    trace = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_matching_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="Elena, what is the current wholesale electricity spot price in ERCOT right now?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2000.0,
+                event_type=EventType.TOOL_CALL,
+                speaker_id="elena_vance",
+                payload={"tool": "fetch_market_price", "args": {"asset": "electricity", "region": "ERCOT"}},
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2200.0,
+                event_type=EventType.TOOL_RESULT,
+                speaker_id="elena_vance",
+                payload={"tool": "fetch_market_price", "result": {"price_mwh": 34.50, "currency": "USD"}, "is_error": False},
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=3000.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="The current wholesale spot price in ERCOT is 34.50 USD per megawatt-hour.",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+    assert result.status == TestStatus.PASS
+
+
+def test_alignment_missing_required_user_turn_returns_inconclusive():
+    """Verify trace with missing user turn returns INCONCLUSIVE."""
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+    # Trace contains agent message but zero user inputs
+    trace = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_no_user_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=2000.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="Hello! How can I help you today?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert result.failure_category == FailureCategory.FAIL_INFRA.value
+    assert "SCENARIO_INPUT_NOT_OBSERVED" in result.reason
+    assert "No user input turns observed" in result.reason
+
+
+def test_alignment_out_of_order_user_turns_returns_inconclusive():
+    """Verify user turns appearing out of order produce INCONCLUSIVE."""
+    multi_turn_scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+    multi_turn_scenario.turns = [
+        TurnInput(
+            turn_index=1,
+            speaker="user",
+            payload="Elena, what is the current wholesale electricity spot price in ERCOT right now?",
+        ),
+        TurnInput(
+            turn_index=2,
+            speaker="user",
+            payload="Can you confirm which region that was for?",
+        ),
+    ]
+
+    # Trace provides turn 2 before turn 1
+    trace = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_out_of_order_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="Can you confirm which region that was for?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="Elena, what is the current wholesale electricity spot price in ERCOT right now?",
+                turn_index=2,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=3000.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="The spot price in ERCOT is 34.50 USD.",
+                turn_index=2,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(multi_turn_scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert result.failure_category == FailureCategory.FAIL_INFRA.value
+    assert "SCENARIO_INPUT_NOT_OBSERVED" in result.reason
+    assert "appeared out of order" in result.reason
+
+
+def test_alignment_punctuation_and_case_variation_succeeds():
+    """Verify punctuation and case differences normalize cleanly without failing alignment."""
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+    # Transcript has different punctuation, mixed case, and extra whitespace
+    trace = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_case_punct_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="  elena,   WHAT is the CURRENT wholesale electricity spot price in ERCOT right now???  ",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2000.0,
+                event_type=EventType.TOOL_CALL,
+                speaker_id="elena_vance",
+                payload={"tool": "fetch_market_price", "args": {"asset": "electricity", "region": "ERCOT"}},
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2200.0,
+                event_type=EventType.TOOL_RESULT,
+                speaker_id="elena_vance",
+                payload={"tool": "fetch_market_price", "result": {"price_mwh": 34.50, "currency": "USD"}, "is_error": False},
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=3000.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="The spot price in ERCOT is 34.50 USD.",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+    assert result.status == TestStatus.PASS
+
+
+def test_alignment_paraphrasing_fails_deterministically():
+    """Verify semantic paraphrases that alter words are deterministically rejected without LLM drift."""
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+    # Semantic paraphrase: "Elena, could you tell me how much ERCOT power costs at the moment?"
+    trace = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_paraphrase_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="Elena, could you tell me how much ERCOT power costs at the moment?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=3000.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="The current spot price is 34.50 USD.",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="elena_vance")
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert result.failure_category == FailureCategory.FAIL_INFRA.value
+    assert "SCENARIO_INPUT_NOT_OBSERVED" in result.reason
+
+
+def test_alignment_preserves_genuine_routing_and_tool_failures():
+    """Verify that when alignment succeeds, real routing and tool defects are preserved as FAIL."""
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+
+    # 1. Aligned input, but wrong agent responds -> FAIL_ROUT
+    trace_wrong_speaker = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_wrong_spk_001",
+        target_type="elevenlabs_convai",
+        target_config="dr_aris",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="Elena, what is the current wholesale electricity spot price in ERCOT right now?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2500.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="dr_aris",
+                payload="I am Dr. Aris and I study geothermal energy.",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    evaluator = Evaluator()
+    res_spk = evaluator.evaluate(scenario, trace_wrong_speaker, target_type="elevenlabs_convai", target_config="dr_aris")
+    assert res_spk.status == TestStatus.FAIL
+    assert res_spk.failure_category == FailureCategory.FAIL_ROUT.value
+
+    # 2. Aligned input, correct speaker, but tool call missing -> FAIL_TOOL
+    trace_missing_tool = ConversationTrace(
+        scenario_id="SCEN-TOOL-05",
+        session_id="conv_missing_tool_001",
+        target_type="elevenlabs_convai",
+        target_config="elena_vance",
+        events=[
+            TraceEvent(
+                timestamp_ms=1000.0,
+                event_type=EventType.USER_INPUT,
+                speaker_id="human_user",
+                payload="Elena, what is the current wholesale electricity spot price in ERCOT right now?",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+            TraceEvent(
+                timestamp_ms=2500.0,
+                event_type=EventType.TRANSCRIPT_FINAL,
+                speaker_id="elena_vance",
+                payload="The spot price in ERCOT is 34.50 without checking tools.",
+                turn_index=1,
+                is_simulated=False,
+                event_provenance="target_reported",
+            ),
+        ],
+        timing_mode="target_reported_call_relative",
+    )
+
+    res_tool = evaluator.evaluate(scenario, trace_missing_tool, target_type="elevenlabs_convai", target_config="elena_vance")
+    assert res_tool.status == TestStatus.FAIL
+    assert res_tool.failure_category == FailureCategory.FAIL_TOOL.value
+    assert "was never called" in res_tool.reason

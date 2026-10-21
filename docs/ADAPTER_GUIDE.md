@@ -278,3 +278,70 @@ Developers without paid ElevenLabs accounts can verify the adapter logic locally
 python -m pytest tests/test_elevenlabs_adapter.py -v
 ```
 All 16 tests execute completely offline without network requests, external dependencies, or API costs.
+
+---
+
+## 8. ElevenLabs Agent Testing API Adapter (`ElevenLabsAgentTestingAdapter`)
+
+VoiceBench provides dedicated integration with the official **ElevenLabs Agent Testing API** (`/v1/convai/agent-testing` and `/v1/convai/agents/{agent_id}/run-tests`).
+
+### Distinction: Recorded Conversations vs. Native Agent Tests
+| Feature | Completed-Conversation Evaluation (`ElevenLabsConvAIAdapter`) | Native Agent Testing (`ElevenLabsAgentTestingAdapter`) |
+| :--- | :--- | :--- |
+| **API Endpoints** | `GET /v1/convai/conversations/{id}` | `POST /v1/convai/agent-testing/create`<br>`POST /v1/convai/agents/{agent_id}/run-tests`<br>`GET /v1/convai/test-invocations/{id}` |
+| **Workflow** | Evaluates transcripts from completed live calls | Programmatically registers unit/simulation tests and triggers remote executions |
+| **Test Scope** | Retroactive analysis of real human/agent sessions | Controlled, repeatable scenario and tool-calling validation |
+| **CLI Command** | `voicebench run --target elevenlabs --conversation-id <id>` | `voicebench agent-test [create|run|get]`<br>`voicebench run --target elevenlabs_agent_testing` |
+
+### Supported Native Test Types
+1. **Simulation Tests (`CreateSimulationTestRequest`, `type: "simulation"`):** Multi-turn conversational simulations driven by scenario goals and success criteria.
+2. **Response Unit Tests (`CreateResponseUnitTestRequest`, `type: "llm"`):** Single-turn next-reply validation checking specific phrasing or evaluation criteria.
+3. **Tool Call Unit Tests (`CreateToolCallUnitTestRequest`, `type: "tool"`):** Verification that the agent triggers expected tool names with designated parameters.
+
+### Safety & Cost Controls
+Creating remote tests or triggering simulated conversations alters account state or consumes credits. VoiceBench enforces:
+- **Dry-Run Preview by Default:** CLI commands (`voicebench agent-test create`, `voicebench agent-test run`) generate a structured request preview and exit without making network requests.
+- **Explicit Confirmation Flag (`--execute`):** Remote mutations and executions only occur when `--execute` is supplied.
+- **Read-Only Inspection (`voicebench agent-test get`):** Inspecting invocations and evaluating traces is strictly read-only.
+- **Strict Secret Redaction:** API keys are never printed in previews, logs, or error diagnostics.
+
+### Result Mapping & Evaluation Separation
+VoiceBench strictly distinguishes provider-native evaluation from VoiceBench deterministic evaluation:
+- **Provider-Native Verdict:** Captures ElevenLabs' internal judge verdict (`passed: true/false`, feedback summary).
+- **VoiceBench Deterministic Verdict:** Evaluates the resulting conversation trace against scenario expectations:
+  - `PASS`: All deterministic rules (keywords, tool calls, nested tool-result paths) satisfied.
+  - `FAIL` (`FAIL_TOOL` / `FAIL_ROLE`): Mismatched arguments, missing keywords, or tool result defects. A provider-native PASS **never** overrides a VoiceBench deterministic failure.
+  - `INCONCLUSIVE` (`FAIL_INFRA`): Test run is still `pending` or `running` (never treated as pass), cancelled by provider, or missing tool telemetry.
+
+### Example CLI Usage
+```bash
+# 1. Preview creating a native simulation test from a scenario (Dry-Run by default)
+python -m voicebench.cli agent-test create \
+  --scenario scenarios/roundtable/SCEN-TOOL-05.yaml \
+  --type tool
+
+# 2. Commit test creation to ElevenLabs (requires explicit --execute)
+python -m voicebench.cli agent-test create \
+  --scenario scenarios/roundtable/SCEN-TOOL-05.yaml \
+  --type tool \
+  --agent-id "agent_your_agent_id" \
+  --execute
+
+# 3. Preview running tests on an agent
+python -m voicebench.cli agent-test run \
+  --test-id "test_your_test_id" \
+  --agent-id "agent_your_agent_id" \
+  --repeat-count 1
+
+# 4. Fetch test invocation and run deterministic VoiceBench evaluation (Read-Only)
+python -m voicebench.cli agent-test get \
+  --invocation-id "inv_your_invocation_id" \
+  --scenario scenarios/roundtable/SCEN-TOOL-05.yaml
+```
+
+### Offline Test Verification
+Run the complete offline test suite for the Agent Testing API adapter:
+```bash
+python -m pytest tests/test_elevenlabs_agent_testing.py -v
+```
+All 21 tests execute completely offline using synthetic fixtures with zero remote API requests.

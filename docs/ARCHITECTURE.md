@@ -28,7 +28,8 @@ flowchart TD
     subgraph Adapters["Target Adapter Layer (Pluggable)"]
         MockAdapter["Local Mock Adapter\n(Offline, Credential-Free)"]
         HttpAdapter["Generic HTTP / WS Adapter\n(External Team Endpoints)"]
-        ElevenAdapter["ElevenLabs ConvAI Adapter\n(Hosted Agents via Adapter)"]
+        ElevenAdapter["ElevenLabs ConvAI Adapter\n(Completed Conversations)"]
+        ElevenTestingAdapter["ElevenLabs Agent Testing Adapter\n(Native Tests & Invocations)"]
     end
 
     subgraph Targets["Target Voice Agents"]
@@ -48,6 +49,7 @@ flowchart TD
     MockAdapter --> AgentLocal
     HttpAdapter --> AgentExt
     ElevenAdapter --> AgentEL
+    ElevenTestingAdapter --> AgentEL
 
     Adapters -->|Event Stream| Trace
     Trace --> Eval
