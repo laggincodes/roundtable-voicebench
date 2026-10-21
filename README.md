@@ -181,6 +181,7 @@ python -m pytest tests/ -v
 
 ## 7. Documentation Suite
 
+- **[PRESENTATION.md](docs/PRESENTATION.md):** 7-slide technical presentation and architecture walkthrough.
 - **[PRIOR_ART_REVIEW.md](docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
 - **[PROJECT_DECISION.md](docs/PROJECT_DECISION.md):** Track scope selection (Problem 1 AI Roundtable) and judging criteria alignment.
 - **[EVALUATION_PLAN.md](docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
@@ -199,4 +200,4 @@ python -m pytest tests/ -v
 - All code and documentation written from scratch.
 - Zero code copied, forked, or vendored from external projects.
 - Authorship accurately reflects true local developers.
-- Work is local and unpublished; no remote Git repository has been pushed.
+- Repository published and verified on GitHub under the MIT License.

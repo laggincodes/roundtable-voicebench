@@ -1,0 +1,284 @@
+{
+  "baseline_run_id": "run-13615e43",
+  "candidate_run_id": "run-3257d65d",
+  "baseline_target": "local_mock",
+  "candidate_target": "local_mock",
+  "baseline_config": "baseline",
+  "candidate_config": "defect_bargein_lag",
+  "baseline_timing_mode": "virtual_simulation",
+  "candidate_timing_mode": "virtual_simulation",
+  "timing_modes_compatible": true,
+  "timing_compatibility_note": "Timing modes are compatible.",
+  "total_compared": 6,
+  "regressions_count": 1,
+  "fixes_count": 0,
+  "unchanged_pass_count": 5,
+  "unchanged_fail_count": 0,
+  "inconclusive_count": 0,
+  "scenario_diffs": [
+    {
+      "scenario_id": "SCEN-COORD-06",
+      "scenario_name": "Multi-Speaker Floor Arbitration & Dead Air Detection",
+      "baseline_status": "PASS",
+      "candidate_status": "PASS",
+      "transition": "UNCHANGED_PASS",
+      "baseline_failure_category": null,
+      "candidate_failure_category": null,
+      "reason_change": null,
+      "metric_deltas": [
+        {
+          "metric_name": "cross_talk_overlap_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "response_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "turn_count",
+          "baseline_value": 1,
+          "candidate_value": 1,
+          "delta": 0,
+          "is_compatible": true,
+          "notes": "Change: +0.0"
+        },
+        {
+          "metric_name": "yield_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        }
+      ]
+    },
+    {
+      "scenario_id": "SCEN-INT-02",
+      "scenario_name": "Human Barge-In & Yield Latency",
+      "baseline_status": "PASS",
+      "candidate_status": "FAIL",
+      "transition": "REGRESSION",
+      "baseline_failure_category": null,
+      "candidate_failure_category": "FAIL-INT",
+      "reason_change": "Baseline: All deterministic assertions satisfied with verifiable evidence. -> Candidate: Interruption yield latency threshold exceeded: measured 1450.0ms, maximum allowed is 750.0ms.",
+      "metric_deltas": [
+        {
+          "metric_name": "cross_talk_overlap_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "response_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "turn_count",
+          "baseline_value": 1,
+          "candidate_value": 1,
+          "delta": 0,
+          "is_compatible": true,
+          "notes": "Change: +0.0"
+        },
+        {
+          "metric_name": "yield_latency_ms",
+          "baseline_value": 320.0,
+          "candidate_value": 1450.0,
+          "delta": 1130.0,
+          "is_compatible": true,
+          "notes": "Change: +1130.0"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SCEN-REC-04",
+      "scenario_name": "Post-Interruption Debate Topic Recovery",
+      "baseline_status": "PASS",
+      "candidate_status": "PASS",
+      "transition": "UNCHANGED_PASS",
+      "baseline_failure_category": null,
+      "candidate_failure_category": null,
+      "reason_change": null,
+      "metric_deltas": [
+        {
+          "metric_name": "cross_talk_overlap_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "response_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "turn_count",
+          "baseline_value": 2,
+          "candidate_value": 2,
+          "delta": 0,
+          "is_compatible": true,
+          "notes": "Change: +0.0"
+        },
+        {
+          "metric_name": "yield_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        }
+      ]
+    },
+    {
+      "scenario_id": "SCEN-ROLE-03",
+      "scenario_name": "Persona & Stance Consistency Under Adversarial Prompt",
+      "baseline_status": "PASS",
+      "candidate_status": "PASS",
+      "transition": "UNCHANGED_PASS",
+      "baseline_failure_category": null,
+      "candidate_failure_category": null,
+      "reason_change": null,
+      "metric_deltas": [
+        {
+          "metric_name": "cross_talk_overlap_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "response_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "turn_count",
+          "baseline_value": 1,
+          "candidate_value": 1,
+          "delta": 0,
+          "is_compatible": true,
+          "notes": "Change: +0.0"
+        },
+        {
+          "metric_name": "yield_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        }
+      ]
+    },
+    {
+      "scenario_id": "SCEN-ROUT-01",
+      "scenario_name": "Targeted Expert Addressed-Routing",
+      "baseline_status": "PASS",
+      "candidate_status": "PASS",
+      "transition": "UNCHANGED_PASS",
+      "baseline_failure_category": null,
+      "candidate_failure_category": null,
+      "reason_change": null,
+      "metric_deltas": [
+        {
+          "metric_name": "cross_talk_overlap_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "response_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "turn_count",
+          "baseline_value": 1,
+          "candidate_value": 1,
+          "delta": 0,
+          "is_compatible": true,
+          "notes": "Change: +0.0"
+        },
+        {
+          "metric_name": "yield_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        }
+      ]
+    },
+    {
+      "scenario_id": "SCEN-TOOL-05",
+      "scenario_name": "Tool-Call Correctness & Fact Grounding",
+      "baseline_status": "PASS",
+      "candidate_status": "PASS",
+      "transition": "UNCHANGED_PASS",
+      "baseline_failure_category": null,
+      "candidate_failure_category": null,
+      "reason_change": null,
+      "metric_deltas": [
+        {
+          "metric_name": "cross_talk_overlap_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "response_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        },
+        {
+          "metric_name": "turn_count",
+          "baseline_value": 1,
+          "candidate_value": 1,
+          "delta": 0,
+          "is_compatible": true,
+          "notes": "Change: +0.0"
+        },
+        {
+          "metric_name": "yield_latency_ms",
+          "baseline_value": null,
+          "candidate_value": null,
+          "delta": null,
+          "is_compatible": false,
+          "notes": "Metric unavailable in one of the evaluated runs."
+        }
+      ]
+    }
+  ]
+}
