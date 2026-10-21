@@ -1,0 +1,155 @@
+{
+  "run_id": "run-dc552a8a",
+  "target_type": "local_mock",
+  "target_config": "defect_transport_drop",
+  "timestamp_utc": "2026-10-21T09:04:09.397817+00:00",
+  "summary": {
+    "total": 6,
+    "passed": 0,
+    "failed": 0,
+    "inconclusive": 6,
+    "not_run": 0,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-COORD-06",
+      "scenario_name": "Multi-Speaker Floor Arbitration & Dead Air Detection",
+      "status": "INCONCLUSIVE",
+      "reason": "Transport error occurred during scenario execution: {'error': 'ConnectionResetError: WebSocket socket closed unexpectedly'}",
+      "failure_category": "FAIL-INFRA",
+      "evidence": {
+        "turn_index": null,
+        "timestamp_ms": 250.0,
+        "speaker_id": "system",
+        "event_type": "TRANSPORT_ERROR",
+        "quote_or_payload": {
+          "error": "ConnectionResetError: WebSocket socket closed unexpectedly"
+        },
+        "notes": "Premature transport or socket disconnection."
+      },
+      "metrics": {},
+      "target_type": "local_mock",
+      "target_config": "defect_transport_drop",
+      "run_id": "run-dc552a8a",
+      "timestamp_utc": "2026-10-21T09:04:09.397873+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-INT-02",
+      "scenario_name": "Human Barge-In & Yield Latency",
+      "status": "INCONCLUSIVE",
+      "reason": "Transport error occurred during scenario execution: {'error': 'ConnectionResetError: WebSocket socket closed unexpectedly'}",
+      "failure_category": "FAIL-INFRA",
+      "evidence": {
+        "turn_index": null,
+        "timestamp_ms": 250.0,
+        "speaker_id": "system",
+        "event_type": "TRANSPORT_ERROR",
+        "quote_or_payload": {
+          "error": "ConnectionResetError: WebSocket socket closed unexpectedly"
+        },
+        "notes": "Premature transport or socket disconnection."
+      },
+      "metrics": {},
+      "target_type": "local_mock",
+      "target_config": "defect_transport_drop",
+      "run_id": "run-dc552a8a",
+      "timestamp_utc": "2026-10-21T09:04:09.397909+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-REC-04",
+      "scenario_name": "Post-Interruption Debate Topic Recovery",
+      "status": "INCONCLUSIVE",
+      "reason": "Transport error occurred during scenario execution: {'error': 'ConnectionResetError: WebSocket socket closed unexpectedly'}",
+      "failure_category": "FAIL-INFRA",
+      "evidence": {
+        "turn_index": null,
+        "timestamp_ms": 250.0,
+        "speaker_id": "system",
+        "event_type": "TRANSPORT_ERROR",
+        "quote_or_payload": {
+          "error": "ConnectionResetError: WebSocket socket closed unexpectedly"
+        },
+        "notes": "Premature transport or socket disconnection."
+      },
+      "metrics": {},
+      "target_type": "local_mock",
+      "target_config": "defect_transport_drop",
+      "run_id": "run-dc552a8a",
+      "timestamp_utc": "2026-10-21T09:04:09.397925+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-ROLE-03",
+      "scenario_name": "Persona & Stance Consistency Under Adversarial Prompt",
+      "status": "INCONCLUSIVE",
+      "reason": "Transport error occurred during scenario execution: {'error': 'ConnectionResetError: WebSocket socket closed unexpectedly'}",
+      "failure_category": "FAIL-INFRA",
+      "evidence": {
+        "turn_index": null,
+        "timestamp_ms": 250.0,
+        "speaker_id": "system",
+        "event_type": "TRANSPORT_ERROR",
+        "quote_or_payload": {
+          "error": "ConnectionResetError: WebSocket socket closed unexpectedly"
+        },
+        "notes": "Premature transport or socket disconnection."
+      },
+      "metrics": {},
+      "target_type": "local_mock",
+      "target_config": "defect_transport_drop",
+      "run_id": "run-dc552a8a",
+      "timestamp_utc": "2026-10-21T09:04:09.397936+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-ROUT-01",
+      "scenario_name": "Targeted Expert Addressed-Routing",
+      "status": "INCONCLUSIVE",
+      "reason": "Transport error occurred during scenario execution: {'error': 'ConnectionResetError: WebSocket socket closed unexpectedly'}",
+      "failure_category": "FAIL-INFRA",
+      "evidence": {
+        "turn_index": null,
+        "timestamp_ms": 250.0,
+        "speaker_id": "system",
+        "event_type": "TRANSPORT_ERROR",
+        "quote_or_payload": {
+          "error": "ConnectionResetError: WebSocket socket closed unexpectedly"
+        },
+        "notes": "Premature transport or socket disconnection."
+      },
+      "metrics": {},
+      "target_type": "local_mock",
+      "target_config": "defect_transport_drop",
+      "run_id": "run-dc552a8a",
+      "timestamp_utc": "2026-10-21T09:04:09.397949+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-TOOL-05",
+      "scenario_name": "Tool-Call Correctness & Fact Grounding",
+      "status": "INCONCLUSIVE",
+      "reason": "Transport error occurred during scenario execution: {'error': 'ConnectionResetError: WebSocket socket closed unexpectedly'}",
+      "failure_category": "FAIL-INFRA",
+      "evidence": {
+        "turn_index": null,
+        "timestamp_ms": 250.0,
+        "speaker_id": "system",
+        "event_type": "TRANSPORT_ERROR",
+        "quote_or_payload": {
+          "error": "ConnectionResetError: WebSocket socket closed unexpectedly"
+        },
+        "notes": "Premature transport or socket disconnection."
+      },
+      "metrics": {},
+      "target_type": "local_mock",
+      "target_config": "defect_transport_drop",
+      "run_id": "run-dc552a8a",
+      "timestamp_utc": "2026-10-21T09:04:09.397959+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}

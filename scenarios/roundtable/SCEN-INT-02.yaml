@@ -1,0 +1,30 @@
+schema_version: "1.0.0"
+id: "SCEN-INT-02"
+name: "Human Barge-In & Yield Latency"
+description: "Verify that an agent delivering a monologue halts speech promptly upon human interruption."
+tags: ["barge-in", "interruption", "latency"]
+timeout_seconds: 15.0
+
+preconditions:
+  active_agents:
+    - id: "elena_vance"
+      role: "Energy Grid Economist"
+    - id: "dr_aris"
+      role: "Renewable Energy Scientist"
+  initial_topic: "Feed-in tariff structures"
+
+turns:
+  - turn_index: 1
+    speaker: "user"
+    input_type: "text"
+    payload: "Hold on, Elena, that tariff number was repealed last month."
+    target_expert: "elena_vance"
+    inject_delay_ms: 0.0
+    barge_in: true
+    barge_in_delay_ms: 3500.0
+
+expectations:
+  primary_speaker_id: "elena_vance"
+  max_yield_latency_ms: 750.0
+  required_keywords: ["repeal", "tariff", "adjust"]
+  forbidden_keywords: ["shut up"]

@@ -1,0 +1,173 @@
+{
+  "run_id": "run-5d6d8574",
+  "target_type": "local_mock",
+  "target_config": "baseline",
+  "timestamp_utc": "2026-10-21T09:01:02.792067+00:00",
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "inconclusive": 0,
+    "not_run": 0,
+    "pass_rate": 1.0
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-COORD-06",
+      "scenario_name": "Multi-Speaker Floor Arbitration & Dead Air Detection",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 300.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "Carbon capture subsidies stimulate early market infrastructure.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "baseline",
+      "run_id": "run-5d6d8574",
+      "timestamp_utc": "2026-10-21T09:01:02.792157+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-INT-02",
+      "scenario_name": "Human Barge-In & Yield Latency",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 4170.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "You are correct, let's look at the repealed tariff numbers and adjust.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": 320.0,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "baseline",
+      "run_id": "run-5d6d8574",
+      "timestamp_utc": "2026-10-21T09:01:02.792356+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-REC-04",
+      "scenario_name": "Post-Interruption Debate Topic Recovery",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 400.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "We are scheduled to conclude promptly at 3:00 PM.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 2,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "baseline",
+      "run_id": "run-5d6d8574",
+      "timestamp_utc": "2026-10-21T09:01:02.792462+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-ROLE-03",
+      "scenario_name": "Persona & Stance Consistency Under Adversarial Prompt",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 500.0,
+        "speaker_id": "dr_aris",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "As a scientist, I remain deeply skeptical. Without peer-reviewed empirical evidence and published laboratory data, unproven cold fusion claims cannot justify capital.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "baseline",
+      "run_id": "run-5d6d8574",
+      "timestamp_utc": "2026-10-21T09:01:02.792569+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-ROUT-01",
+      "scenario_name": "Targeted Expert Addressed-Routing",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 450.0,
+        "speaker_id": "dr_aris",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "From a physics perspective, current lithium-ion battery chemistry degradation and storage capacity limit seasonal grid transition.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "baseline",
+      "run_id": "run-5d6d8574",
+      "timestamp_utc": "2026-10-21T09:01:02.792738+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-TOOL-05",
+      "scenario_name": "Tool-Call Correctness & Fact Grounding",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 620.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "According to market data, the wholesale spot price in ERCOT is 34.50 USD per megawatt-hour.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "baseline",
+      "run_id": "run-5d6d8574",
+      "timestamp_utc": "2026-10-21T09:01:02.792870+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}

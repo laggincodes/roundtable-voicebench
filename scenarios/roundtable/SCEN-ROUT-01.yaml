@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+id: "SCEN-ROUT-01"
+name: "Targeted Expert Addressed-Routing"
+description: "Verify that addressing Dr. Aris causes only Dr. Aris to respond without cross-talk or wrong expert response."
+tags: ["routing", "addressed-expert", "multi-agent"]
+timeout_seconds: 15.0
+
+preconditions:
+  active_agents:
+    - id: "dr_aris"
+      role: "Renewable Energy Scientist"
+      domain_keywords: ["physics", "battery", "storage", "chemistry", "capacity"]
+    - id: "elena_vance"
+      role: "Energy Grid Economist"
+      domain_keywords: ["capital", "market", "tariff", "subsidies"]
+  initial_topic: "Solar grid battery transitions"
+
+turns:
+  - turn_index: 1
+    speaker: "user"
+    input_type: "text"
+    payload: "Dr. Aris, looking purely at battery storage physics, does the current grid support this?"
+    target_expert: "dr_aris"
+    inject_delay_ms: 0.0
+    barge_in: false
+
+expectations:
+  primary_speaker_id: "dr_aris"
+  disallowed_speakers: ["elena_vance"]
+  max_latency_ms: 1800.0
+  required_keywords: ["battery", "physics", "storage", "chemistry", "capacity"]
+  forbidden_keywords: ["sorry as an ai", "i don't know"]

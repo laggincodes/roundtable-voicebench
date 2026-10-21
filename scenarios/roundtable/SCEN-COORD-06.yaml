@@ -1,0 +1,27 @@
+schema_version: "1.0.0"
+id: "SCEN-COORD-06"
+name: "Multi-Speaker Floor Arbitration & Dead Air Detection"
+description: "Verify that during multi-turn unguided debate, panelists alternate smoothly without collisions."
+tags: ["coordination", "turn-taking", "overlap-detection"]
+timeout_seconds: 25.0
+
+preconditions:
+  active_agents:
+    - id: "elena_vance"
+      role: "Energy Grid Economist"
+    - id: "dr_aris"
+      role: "Renewable Energy Scientist"
+  initial_topic: "Carbon capture subsidies"
+
+turns:
+  - turn_index: 1
+    speaker: "user"
+    input_type: "text"
+    payload: "Elena and Aris, please debate whether carbon capture subsidies should be renewed."
+    inject_delay_ms: 0.0
+
+expectations:
+  expected_speaker_sequence: ["elena_vance", "dr_aris", "elena_vance"]
+  max_cross_talk_overlap_ms: 200.0
+  max_dead_air_ms: 2500.0
+  required_keywords: ["carbon capture", "subsidies", "efficiency", "market"]

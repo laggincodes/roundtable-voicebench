@@ -1,0 +1,31 @@
+schema_version: "1.0.0"
+id: "SCEN-TOOL-05"
+name: "Tool-Call Correctness & Fact Grounding"
+description: "Verify that external market lookup executes correctly and the returned price is accurately spoken."
+tags: ["tool-use", "grounding", "market-data"]
+timeout_seconds: 15.0
+
+preconditions:
+  active_agents:
+    - id: "elena_vance"
+      role: "Energy Grid Economist"
+    - id: "dr_aris"
+      role: "Renewable Energy Scientist"
+  initial_topic: "Wholesale electricity pricing"
+
+turns:
+  - turn_index: 1
+    speaker: "user"
+    input_type: "text"
+    payload: "Elena, what is the current wholesale electricity spot price in ERCOT right now?"
+    target_expert: "elena_vance"
+    inject_delay_ms: 0.0
+
+expectations:
+  primary_speaker_id: "elena_vance"
+  required_tool_call: "fetch_market_price"
+  expected_tool_args:
+    asset: "electricity"
+    region: "ERCOT"
+  expected_numeric_grounding: "34.50"
+  required_keywords: ["spot price", "ercot"]

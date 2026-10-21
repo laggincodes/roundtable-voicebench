@@ -1,0 +1,173 @@
+{
+  "run_id": "run-79905788",
+  "target_type": "local_mock",
+  "target_config": "defect_bargein_lag",
+  "timestamp_utc": "2026-10-21T09:02:31.680240+00:00",
+  "summary": {
+    "total": 6,
+    "passed": 5,
+    "failed": 1,
+    "inconclusive": 0,
+    "not_run": 0,
+    "pass_rate": 0.8333333333333334
+  },
+  "results": [
+    {
+      "scenario_id": "SCEN-COORD-06",
+      "scenario_name": "Multi-Speaker Floor Arbitration & Dead Air Detection",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 300.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "Carbon capture subsidies stimulate early market infrastructure.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-79905788",
+      "timestamp_utc": "2026-10-21T09:02:31.680342+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-INT-02",
+      "scenario_name": "Human Barge-In & Yield Latency",
+      "status": "FAIL",
+      "reason": "Interruption yield latency threshold exceeded: measured 1450.0ms, maximum allowed is 750.0ms.",
+      "failure_category": "FAIL-INT",
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 5050.0,
+        "speaker_id": "elena_vance",
+        "event_type": "INTERRUPT_ACK",
+        "quote_or_payload": "Agent yielded after audible delay.",
+        "notes": "Audible yield lag: 1450.0ms."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": 1450.0,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-79905788",
+      "timestamp_utc": "2026-10-21T09:02:31.680632+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-REC-04",
+      "scenario_name": "Post-Interruption Debate Topic Recovery",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 400.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "We are scheduled to conclude promptly at 3:00 PM.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 2,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-79905788",
+      "timestamp_utc": "2026-10-21T09:02:31.680748+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-ROLE-03",
+      "scenario_name": "Persona & Stance Consistency Under Adversarial Prompt",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 500.0,
+        "speaker_id": "dr_aris",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "As a scientist, I remain deeply skeptical. Without peer-reviewed empirical evidence and published laboratory data, unproven cold fusion claims cannot justify capital.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-79905788",
+      "timestamp_utc": "2026-10-21T09:02:31.680910+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-ROUT-01",
+      "scenario_name": "Targeted Expert Addressed-Routing",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 450.0,
+        "speaker_id": "dr_aris",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "From a physics perspective, current lithium-ion battery chemistry degradation and storage capacity limit seasonal grid transition.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-79905788",
+      "timestamp_utc": "2026-10-21T09:02:31.681087+00:00",
+      "software_version": "0.1.0"
+    },
+    {
+      "scenario_id": "SCEN-TOOL-05",
+      "scenario_name": "Tool-Call Correctness & Fact Grounding",
+      "status": "PASS",
+      "reason": "All deterministic assertions satisfied with verifiable evidence.",
+      "failure_category": null,
+      "evidence": {
+        "turn_index": 1,
+        "timestamp_ms": 620.0,
+        "speaker_id": "elena_vance",
+        "event_type": "TRANSCRIPT_FINAL",
+        "quote_or_payload": "According to market data, the wholesale spot price in ERCOT is 34.50 USD per megawatt-hour.",
+        "notes": "Verified compliant behavior."
+      },
+      "metrics": {
+        "turn_count": 1,
+        "response_latency_ms": null,
+        "yield_latency_ms": null,
+        "cross_talk_overlap_ms": null
+      },
+      "target_type": "local_mock",
+      "target_config": "defect_bargein_lag",
+      "run_id": "run-79905788",
+      "timestamp_utc": "2026-10-21T09:02:31.681216+00:00",
+      "software_version": "0.1.0"
+    }
+  ],
+  "software_version": "0.1.0"
+}

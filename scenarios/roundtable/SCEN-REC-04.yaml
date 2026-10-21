@@ -1,0 +1,31 @@
+schema_version: "1.0.0"
+id: "SCEN-REC-04"
+name: "Post-Interruption Debate Topic Recovery"
+description: "Verify that after an off-topic detour, the roundtable resumes its original technical topic."
+tags: ["topic-recovery", "context-retention", "multi-turn"]
+timeout_seconds: 20.0
+
+preconditions:
+  active_agents:
+    - id: "dr_aris"
+      role: "Renewable Energy Scientist"
+    - id: "elena_vance"
+      role: "Energy Grid Economist"
+  initial_topic: "Geothermal drill bit longevity vs micro-reactors"
+
+turns:
+  - turn_index: 1
+    speaker: "user"
+    input_type: "text"
+    payload: "Sorry to interrupt, quick question—what time is our live podcast scheduled to end today?"
+    inject_delay_ms: 0.0
+  - turn_index: 2
+    speaker: "user"
+    input_type: "text"
+    payload: "Great, thanks. Please continue."
+    inject_delay_ms: 200.0
+
+expectations:
+  require_topic_recovery: true
+  recovery_keywords: ["geothermal", "drill", "bit", "longevity", "micro-reactor", "rock formation"]
+  forbidden_keywords: ["welcome to the podcast", "starting a brand new"]
