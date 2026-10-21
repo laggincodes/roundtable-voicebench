@@ -1,4 +1,6 @@
-# VoiceBench
+# VoiceBench (Roundtable VoiceBench)
+
+An open-source evaluation framework for real-time multi-agent voice conversations, testing interruption handling, expert roles, conversation recovery, and behavioral regressions.
 
 > **Status:** 🚀 **Milestone 3 Implemented (ElevenLabs Integration & Safe Publishing Readiness)**  
 > *VoiceBench has implemented a dedicated ElevenLabs Conversational AI adapter (`ElevenLabsConvAIAdapter`), rigorous credential redaction, official REST endpoint integration, deterministic offline mock test suite, transparent capability disclosures, and safe GitHub publishing preparation.*
