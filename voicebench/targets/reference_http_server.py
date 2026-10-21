@@ -30,6 +30,9 @@ class ReferenceRoundtableHandler(BaseHTTPRequestHandler):
         """Handle incoming scenario execution POST request."""
         mode = getattr(self.server, "server_mode", self.server_mode)
 
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+
         # 1. Simulate server-side timeout
         if mode == "timeout":
             time.sleep(3.0)
@@ -41,10 +44,12 @@ class ReferenceRoundtableHandler(BaseHTTPRequestHandler):
 
         # 2. Simulate HTTP 500 Internal Server Error
         if mode == "500":
+            err_resp = b'{"error": "Internal Server Error in roundtable engine"}'
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(err_resp)))
             self.end_headers()
-            self.wfile.write(b'{"error": "Internal Server Error in roundtable engine"}')
+            self.wfile.write(err_resp)
             return
 
         # 3. Simulate malformed JSON response
@@ -64,9 +69,6 @@ class ReferenceRoundtableHandler(BaseHTTPRequestHandler):
             return
 
         # 5. Compliant execution
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length)
-
         try:
             req_data = json.loads(body.decode("utf-8"))
         except Exception:

@@ -70,6 +70,24 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"status": "done", "conversation_id": "conv_123"}')
             return
 
+        if mode == "agent_mismatch":
+            conv_payload = {
+                "agent_id": "unexpected_rogue_agent",
+                "conversation_id": "conv_mismatched_001",
+                "status": "done",
+                "transcript": [
+                    {"role": "user", "message": "Hello", "time_in_call_secs": 1.0},
+                    {"role": "agent", "message": "Hi there", "time_in_call_secs": 2.0},
+                ],
+            }
+            resp_bytes = json.dumps(conv_payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+            return
+
         # Compliant Agent Info endpoint: /v1/convai/agents/{agent_id}
         if "/v1/convai/agents/" in self.path:
             agent_payload = {
@@ -776,3 +794,109 @@ def test_adapter_unconfigured_credentials_handling():
     result = evaluator.evaluate(scenario, trace)
     assert result.status == TestStatus.INCONCLUSIVE
     assert result.failure_category == FailureCategory.FAIL_INFRA.value
+
+
+def test_adapter_missing_conversation_id_handling():
+    """Verify running with API key but without conversation ID records TRANSPORT_ERROR and produces INCONCLUSIVE."""
+    adapter = ElevenLabsConvAIAdapter(
+        api_key="valid_test_xi_key_secret_1234",
+        agent_id="test_agent_dr_aris",
+        conversation_id=None,
+    )
+    adapter.conversation_id = ""
+
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
+    trace = adapter.execute_scenario(scenario)
+
+    transport_errors = [e for e in trace.events if e.event_type == EventType.TRANSPORT_ERROR]
+    assert len(transport_errors) == 1
+    assert "ELEVENLABS_CONVERSATION_ID" in transport_errors[0].payload["error"]
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace)
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert result.failure_category == FailureCategory.FAIL_INFRA.value
+
+
+def test_adapter_real_conversation_id_propagation(mock_elevenlabs_server):
+    """Verify explicit conversation_id is requested from the API and correctly evaluated."""
+    adapter = ElevenLabsConvAIAdapter(
+        api_key="valid_test_xi_key_secret_1234",
+        agent_id="test_agent_dr_aris",
+        conversation_id="conv_test_session_001",
+        base_url=mock_elevenlabs_server.base_url,
+    )
+
+    scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
+    scenario.expectations.primary_speaker_id = "test_agent_dr_aris"
+    scenario.expectations.required_keywords = ["borehole", "pressure"]
+
+    trace = adapter.execute_scenario(scenario)
+    assert trace.session_id == "conv_test_session_001"
+    assert len(trace.get_transcripts()) > 0
+
+    evaluator = Evaluator()
+    result = evaluator.evaluate(scenario, trace, target_type="elevenlabs_convai", target_config="dr_aris")
+    assert result.status == TestStatus.PASS
+
+
+def test_adapter_prevents_conversation_reuse_across_scenarios(mock_elevenlabs_server):
+    """Verify a single conversation ID cannot be reused across distinct scenarios."""
+    adapter = ElevenLabsConvAIAdapter(
+        api_key="valid_test_xi_key_secret_1234",
+        agent_id="test_agent_dr_aris",
+        conversation_id="conv_test_session_001",
+        base_url=mock_elevenlabs_server.base_url,
+    )
+
+    scenario1 = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
+    scenario2 = load_scenario_from_file(SCENARIOS_DIR / "SCEN-TOOL-05.yaml")
+
+    # First scenario execution succeeds or completes
+    trace1 = adapter.execute_scenario(scenario1)
+    assert len([e for e in trace1.events if e.event_type == EventType.TRANSPORT_ERROR]) == 0
+
+    # Second scenario execution on same adapter is rejected due to reuse
+    trace2 = adapter.execute_scenario(scenario2)
+    transport_errors = [e for e in trace2.events if e.event_type == EventType.TRANSPORT_ERROR]
+    assert len(transport_errors) == 1
+    assert "ConversationReuseError" in transport_errors[0].payload["error"]
+
+    evaluator = Evaluator()
+    result2 = evaluator.evaluate(scenario2, trace2)
+    assert result2.status == TestStatus.INCONCLUSIVE
+    assert result2.failure_category == FailureCategory.FAIL_INFRA.value
+
+
+def test_adapter_agent_mismatch_failure():
+    """Verify conversation returned for a different agent produces AgentMismatchError and INCONCLUSIVE."""
+    server = MockElevenLabsServerThread(mode="agent_mismatch")
+    server.start()
+    try:
+        adapter = ElevenLabsConvAIAdapter(
+            api_key="valid_test_xi_key_secret_1234",
+            agent_id="test_agent_dr_aris",
+            conversation_id="conv_mismatched_001",
+            base_url=server.base_url,
+        )
+
+        scenario = load_scenario_from_file(SCENARIOS_DIR / "SCEN-ROLE-03.yaml")
+        trace = adapter.execute_scenario(scenario)
+
+        transport_errors = [e for e in trace.events if e.event_type == EventType.TRANSPORT_ERROR]
+        assert len(transport_errors) == 1
+        assert "AgentMismatchError" in transport_errors[0].payload["error"]
+
+        evaluator = Evaluator()
+        result = evaluator.evaluate(scenario, trace)
+        assert result.status == TestStatus.INCONCLUSIVE
+        assert result.failure_category == FailureCategory.FAIL_INFRA.value
+    finally:
+        server.stop()
+
+
+def test_adapter_reads_env_conversation_id(monkeypatch):
+    """Verify ELEVENLABS_CONVERSATION_ID is loaded from environment when not passed in args."""
+    monkeypatch.setenv("ELEVENLABS_CONVERSATION_ID", "conv_from_env_999")
+    adapter = ElevenLabsConvAIAdapter(api_key="dummy_key", agent_id="dummy_agent")
+    assert adapter.conversation_id == "conv_from_env_999"

@@ -39,21 +39,25 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
         self,
         api_key: Optional[str] = None,
         agent_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
         base_url: str = "https://api.elevenlabs.io",
         timeout_seconds: float = 15.0,
     ):
         target_config = agent_id or "default"
         super().__init__(target_type="elevenlabs_convai", target_config=target_config)
-        # Resolve credentials from environment if not explicitly provided
+        # Resolve credentials and target conversation from environment if not explicitly provided
         self._api_key = api_key or os.environ.get("ELEVENLABS_API_KEY", "")
         self.agent_id = agent_id or os.environ.get("ELEVENLABS_AGENT_ID", "")
+        self.conversation_id = conversation_id or os.environ.get("ELEVENLABS_CONVERSATION_ID", "")
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self._evaluated_scenario_id: Optional[str] = None
 
     def __repr__(self) -> str:
         masked_key = f"...{self._api_key[-4:]}" if len(self._api_key) >= 4 else ("set" if self._api_key else "none")
         return (
             f"ElevenLabsConvAIAdapter(agent_id={self.agent_id or 'none'}, "
+            f"conversation_id={self.conversation_id or 'none'}, "
             f"base_url={self.base_url}, api_key={masked_key})"
         )
 
@@ -82,14 +86,17 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
             if "agent_id" in config:
                 self.agent_id = str(config["agent_id"])
                 self.target_config = self.agent_id
+            if "conversation_id" in config:
+                self.conversation_id = str(config["conversation_id"])
             if "base_url" in config:
                 self.base_url = str(config["base_url"]).rstrip("/")
             if "timeout_seconds" in config:
                 self.timeout_seconds = float(config["timeout_seconds"])
+        self._evaluated_scenario_id = None
 
     def teardown(self) -> None:
         """Clean up resources upon test completion."""
-        pass
+        self._evaluated_scenario_id = None
 
     def validate_scenario_compatibility(self, scenario: Scenario) -> List[str]:
         """Validate scenario compatibility, identifying barge-in or multi-speaker requirements."""
@@ -211,6 +218,24 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                 )
                 return collector.to_trace()
 
+            # Verify conversation belongs to configured agent (if agent_id configured)
+            conv_agent_id = data.get("agent_id")
+            if self.agent_id and conv_agent_id and conv_agent_id != self.agent_id:
+                collector.record_event(
+                    event_type=EventType.TRANSPORT_ERROR,
+                    payload={
+                        "error": (
+                            f"AgentMismatchError: Conversation '{conversation_id}' belongs to agent "
+                            f"'{conv_agent_id}', but adapter was configured for '{self.agent_id}'."
+                        )
+                    },
+                    is_simulated=False,
+                    event_provenance="client_observed",
+                )
+                return collector.to_trace()
+
+            effective_speaker_id = self.agent_id or conv_agent_id or "agent"
+
             # Parse transcript turns into structured events
             for idx, item in enumerate(data["transcript"]):
                 role = item.get("role", "unknown")
@@ -234,7 +259,7 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                                     parsed_args = {"_raw": raw_args}
                             collector.record_event(
                                 event_type=EventType.TOOL_CALL,
-                                speaker_id=self.agent_id or "agent",
+                                speaker_id=effective_speaker_id,
                                 payload={
                                     "tool": t_name,
                                     "args": parsed_args,
@@ -269,7 +294,7 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                             raw_err = tr.get("raw_error_message")
                             collector.record_event(
                                 event_type=EventType.TOOL_RESULT,
-                                speaker_id=self.agent_id or "agent",
+                                speaker_id=effective_speaker_id,
                                 payload={
                                     "tool": t_name,
                                     "result": parsed_res,
@@ -294,7 +319,7 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                 if role == "agent":
                     collector.record_event(
                         event_type=EventType.TRANSCRIPT_FINAL,
-                        speaker_id=self.agent_id or "agent",
+                        speaker_id=effective_speaker_id,
                         payload=msg,
                         turn_index=turn_idx,
                         timestamp_ms=source_ts_ms,
@@ -421,6 +446,37 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
             )
             return collector.to_trace()
 
-        # Fetch conversation trace
-        conversation_id = f"conv_sim_{scenario.id.lower()}"
-        return self.fetch_conversation_trace(conversation_id=conversation_id, scenario_id=scenario.id)
+        # 3. Check conversation ID (reject missing or fabricated IDs)
+        if not self.conversation_id:
+            collector.record_event(
+                event_type=EventType.TRANSPORT_ERROR,
+                payload={
+                    "error": (
+                        "ConfigurationError: Missing ELEVENLABS_CONVERSATION_ID. "
+                        "Pass --conversation-id <id> or set ELEVENLABS_CONVERSATION_ID "
+                        "to evaluate a real completed conversation transcript."
+                    )
+                },
+                is_simulated=False,
+                event_provenance="client_observed",
+            )
+            return collector.to_trace()
+
+        # 4. Prevent accidental conversation reuse across distinct scenarios
+        if self._evaluated_scenario_id is not None and self._evaluated_scenario_id != scenario.id:
+            collector.record_event(
+                event_type=EventType.TRANSPORT_ERROR,
+                payload={
+                    "error": (
+                        f"ConversationReuseError: Conversation '{self.conversation_id}' was already "
+                        f"evaluated for scenario '{self._evaluated_scenario_id}'. Reusing a single "
+                        "conversation across multiple distinct scenarios is prohibited."
+                    )
+                },
+                is_simulated=False,
+                event_provenance="client_observed",
+            )
+            return collector.to_trace()
+
+        self._evaluated_scenario_id = scenario.id
+        return self.fetch_conversation_trace(conversation_id=self.conversation_id, scenario_id=scenario.id)

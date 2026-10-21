@@ -63,6 +63,7 @@ python -m voicebench.cli run \
 python -m voicebench.cli run \
   --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
   --target elevenlabs \
+  --conversation-id "conv_your_conversation_id" \
   --output results/elevenlabs_run.json
 ```
 
@@ -148,7 +149,10 @@ VoiceBench includes a dedicated adapter (`ElevenLabsConvAIAdapter`) connecting d
 ```powershell
 $env:ELEVENLABS_API_KEY = "sk_..."
 $env:ELEVENLABS_AGENT_ID = "agent_..."
+$env:ELEVENLABS_CONVERSATION_ID = "conv_..."
 ```
+
+> **Evaluation Workflow:** To evaluate a live ElevenLabs conversation, specify a real conversation ID using `--conversation-id` or `$env:ELEVENLABS_CONVERSATION_ID`. VoiceBench queries `GET /v1/convai/conversations/{conversation_id}` strictly in read-only mode — it never initiates outbound calls or creates billable resources. If no conversation ID is provided, VoiceBench reports a transparent `INCONCLUSIVE` configuration error rather than sending fabricated identifiers. Accidental reuse of a single conversation across a multi-scenario suite is strictly prevented.
 
 ---
 

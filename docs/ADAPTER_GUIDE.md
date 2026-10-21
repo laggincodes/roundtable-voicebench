@@ -238,22 +238,31 @@ Set environment variables securely in your terminal session (never commit keys t
 ```powershell
 $env:ELEVENLABS_API_KEY = "sk_..."
 $env:ELEVENLABS_AGENT_ID = "agent_..."
+$env:ELEVENLABS_CONVERSATION_ID = "conv_..."
 ```
 
 ### Running Evaluation Against ElevenLabs
 ```bash
-# Evaluate role consistency of a configured ElevenLabs agent
-python -m voicebench.cli run \
-  --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
-  --target elevenlabs
-
-# Pass credentials or agent ID explicitly via CLI
+# Evaluate a real completed conversation for role consistency
 python -m voicebench.cli run \
   --suite scenarios/roundtable/SCEN-ROLE-03.yaml \
   --target elevenlabs \
+  --conversation-id "conv_your_conversation_id"
+
+# Pass credentials, agent ID, and conversation ID explicitly via CLI
+python -m voicebench.cli run \
+  --suite scenarios/roundtable/SCEN-TOOL-05.yaml \
+  --target elevenlabs \
   --api-key "sk_..." \
-  --agent-id "agent_..."
+  --agent-id "agent_..." \
+  --conversation-id "conv_your_conversation_id"
 ```
+
+> **Safety & Integrity Guarantees:**
+> - **Read-Only API Calls:** VoiceBench queries `GET /v1/convai/conversations/{conversation_id}`. It never triggers outbound calls or generates billable conversational turns.
+> - **Zero Fabricated IDs:** If `--conversation-id` is omitted, VoiceBench immediately records `ConfigurationError: Missing ELEVENLABS_CONVERSATION_ID` (verdict: `INCONCLUSIVE`), refusing to invent fictional session IDs.
+> - **No Multi-Scenario Reuse:** A single conversation cannot be evaluated across multiple scenarios. The CLI and adapter reject running multi-scenario suites against a single conversation ID.
+> - **Agent Ownership Verification:** When an agent ID is configured, VoiceBench validates that the conversation record actually originated from that agent, flagging discrepancies as `AgentMismatchError`.
 
 ### Capability Matrix & Honest Disclosures
 | Scenario | Capability Required | Supported by ElevenLabs REST? | VoiceBench Behavior |

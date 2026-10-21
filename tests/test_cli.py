@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import pytest
 from voicebench.cli import main
 
 
@@ -54,3 +55,23 @@ def test_cli_run_defect_returns_nonzero(tmp_path, capsys):
     assert out_file.exists()
     data = json.loads(out_file.read_text(encoding="utf-8"))
     assert data["summary"]["failed"] == 1
+
+
+def test_cli_run_help_shows_conversation_id(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--help"])
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "--conversation-id" in captured.out
+
+
+def test_cli_run_elevenlabs_multi_scenario_blocked_with_conv_id(capsys):
+    ret = main([
+        "run",
+        "--suite", "scenarios/roundtable",
+        "--target", "elevenlabs",
+        "--conversation-id", "conv_abc_123",
+    ])
+    assert ret == 2
+    captured = capsys.readouterr()
+    assert "cannot be evaluated across multiple scenarios" in captured.err

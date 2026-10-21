@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import List, Optional
@@ -90,6 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--agent-id",
         help="ElevenLabs Agent ID (or set ELEVENLABS_AGENT_ID environment variable)",
+    )
+    run_parser.add_argument(
+        "--conversation-id",
+        help="ElevenLabs Conversation ID (or set ELEVENLABS_CONVERSATION_ID environment variable)",
     )
     run_parser.add_argument(
         "--base-url",
@@ -185,6 +190,7 @@ def cmd_run(
     endpoint_url: str = "http://localhost:8080/api/v1/roundtable/execute",
     api_key: Optional[str] = None,
     agent_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
     base_url: str = "https://api.elevenlabs.io",
     target_config: str = "baseline",
     output_file: Optional[str] = None,
@@ -215,9 +221,19 @@ def cmd_run(
     if target_type in ("http", "generic_http"):
         adapter = GenericHttpAdapter(endpoint_url=endpoint_url, target_config=target_config)
     elif target_type in ("elevenlabs", "elevenlabs_convai"):
+        effective_conv_id = conversation_id or os.environ.get("ELEVENLABS_CONVERSATION_ID")
+        if effective_conv_id and len(scenarios) > 1:
+            print(
+                f"Error: Single conversation ID '{effective_conv_id}' cannot be evaluated across "
+                f"multiple scenarios ({len(scenarios)} targeted). Use --scenario-id to specify a "
+                "single scenario or supply a single scenario file.",
+                file=sys.stderr,
+            )
+            return 2
         adapter = ElevenLabsConvAIAdapter(
             api_key=api_key,
             agent_id=agent_id,
+            conversation_id=conversation_id,
             base_url=base_url,
         )
     else:
@@ -357,6 +373,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             endpoint_url=args.endpoint_url,
             api_key=args.api_key,
             agent_id=args.agent_id,
+            conversation_id=args.conversation_id,
             base_url=args.base_url,
             target_config=args.target_config,
             output_file=args.output,
