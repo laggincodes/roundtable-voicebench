@@ -124,7 +124,7 @@ Peer teams building real-time multi-agent systems can integrate with VoiceBench 
   - Incompatible timing modes (`virtual_simulation`, `observed_wall_clock`, `target_reported_call_relative`) are rejected from metric deltas in the regression comparator to prevent dishonest comparisons.
 - **Resilience:** Unreachable ports, connection timeouts, HTTP 500, and malformed JSON are cleanly caught as `TRANSPORT_ERROR` events and evaluated as `INCONCLUSIVE` (`FAIL_INFRA`).
 
-See [docs/ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md) for full endpoint specifications, payload schemas, and integration checklists.
+See [docs/ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md) for full endpoint specifications, payload schemas, and integration checklists.
 
 ---
 
@@ -181,16 +181,16 @@ python -m pytest tests/ -v
 
 ## 7. Documentation Suite
 
-- **[PRIOR_ART_REVIEW.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
-- **[PROJECT_DECISION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/PROJECT_DECISION.md):** Track scope selection (Problem 1 AI Roundtable) and judging criteria alignment.
-- **[EVALUATION_PLAN.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
-- **[ARCHITECTURE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ARCHITECTURE.md):** System architecture, interfaces, and diff specifications.
-- **[ADAPTER_GUIDE.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, ElevenLabs adapter guide, timing rules, and reference server.
-- **[ELEVENLABS_INTEGRATION_DECISION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/ELEVENLABS_INTEGRATION_DECISION.md):** Official API references, integration scope, and capability decisions.
-- **[MILESTONE_PLAN.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_PLAN.md):** Implementation roadmap for the hackathon.
-- **[MILESTONE_1_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_1_VERIFICATION.md):** Milestone 1 verification gate audit.
-- **[MILESTONE_2_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_2_VERIFICATION.md):** Milestone 2 verification gate audit.
-- **[MILESTONE_3_VERIFICATION.md](file:///C:/Users/Yatha/.gemini/antigravity/scratch/voicebench/docs/MILESTONE_3_VERIFICATION.md):** Milestone 3 verification gate audit and safe publishing readiness.
+- **[PRIOR_ART_REVIEW.md](docs/PRIOR_ART_REVIEW.md):** Research sources, prior-art audit, and gap analysis.
+- **[PROJECT_DECISION.md](docs/PROJECT_DECISION.md):** Track scope selection (Problem 1 AI Roundtable) and judging criteria alignment.
+- **[EVALUATION_PLAN.md](docs/EVALUATION_PLAN.md):** Detailed scenario specifications and failure taxonomies.
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** System architecture, interfaces, and diff specifications.
+- **[ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, ElevenLabs adapter guide, timing rules, and reference server.
+- **[ELEVENLABS_INTEGRATION_DECISION.md](docs/ELEVENLABS_INTEGRATION_DECISION.md):** Official API references, integration scope, and capability decisions.
+- **[MILESTONE_PLAN.md](docs/MILESTONE_PLAN.md):** Implementation roadmap for the hackathon.
+- **[MILESTONE_1_VERIFICATION.md](docs/MILESTONE_1_VERIFICATION.md):** Milestone 1 verification gate audit.
+- **[MILESTONE_2_VERIFICATION.md](docs/MILESTONE_2_VERIFICATION.md):** Milestone 2 verification gate audit.
+- **[MILESTONE_3_VERIFICATION.md](docs/MILESTONE_3_VERIFICATION.md):** Milestone 3 verification gate audit and safe publishing readiness.
 
 ---
 
