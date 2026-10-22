@@ -364,8 +364,14 @@ class ElevenLabsAgentTestingAdapter(TargetAdapter):
         timeout_seconds: float = 15.0,
     ):
         super().__init__(target_type="elevenlabs_agent_testing", target_config=agent_id or "default")
-        self._api_key = api_key or os.environ.get("ELEVENLABS_API_KEY", "")
-        self.agent_id = agent_id or os.environ.get("ELEVENLABS_AGENT_ID", "")
+        if (api_key is None and not os.environ.get("ELEVENLABS_API_KEY")) or (agent_id is None and not os.environ.get("ELEVENLABS_AGENT_ID")):
+            try:
+                from dotenv import load_dotenv
+                load_dotenv()
+            except ImportError:
+                pass
+        self._api_key = os.environ.get("ELEVENLABS_API_KEY", "") if api_key is None else api_key
+        self.agent_id = os.environ.get("ELEVENLABS_AGENT_ID", "") if agent_id is None else agent_id
         self.test_invocation_id = test_invocation_id or os.environ.get("ELEVENLABS_TEST_INVOCATION_ID", "")
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
@@ -909,5 +915,14 @@ class ElevenLabsAgentTestingAdapter(TargetAdapter):
             )
             return collector.to_trace()
 
-        invocation = self.get_test_invocation(self.test_invocation_id)
-        return self.convert_invocation_to_trace(invocation, scenario_id=scenario.id)
+        try:
+            invocation = self.get_test_invocation(self.test_invocation_id)
+            return self.convert_invocation_to_trace(invocation, scenario_id=scenario.id)
+        except Exception as exc:
+            collector.record_event(
+                event_type=EventType.TRANSPORT_ERROR,
+                payload={"error": f"InvocationFetchError: {self._redact(str(exc))}"},
+                is_simulated=False,
+                event_provenance="client_observed",
+            )
+            return collector.to_trace()

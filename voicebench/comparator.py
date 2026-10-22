@@ -53,6 +53,9 @@ def load_suite_result_from_file(file_path: str | Path) -> SuiteResult:
                 timestamp_utc=r.get("timestamp_utc", ""),
                 software_version=r.get("software_version", "0.1.0"),
                 timing_mode=r.get("timing_mode", "virtual_simulation"),
+                failures=list(r.get("failures", [])),
+                diagnostic_details=r.get("diagnostic_details"),
+                expected_vs_actual=r.get("expected_vs_actual"),
             )
         )
 

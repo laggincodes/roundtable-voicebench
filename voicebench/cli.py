@@ -325,6 +325,9 @@ def cmd_run(
         print(f"{status_label:<15} {res.scenario_id:<16} {res.scenario_name}")
         if res.status != TestStatus.PASS:
             print(f"                Reason: {res.reason}")
+            if len(res.failures) > 1:
+                for i, fail_item in enumerate(res.failures, 1):
+                    print(f"                [{i}] {fail_item.get('assertion')}: expected '{fail_item.get('expected')}', got '{fail_item.get('actual')}'")
             if res.evidence and res.evidence.notes:
                 print(f"                Evidence: {res.evidence.notes}")
 

@@ -27,7 +27,35 @@ cd voicebench
 pip install -r requirements.txt
 ```
 
-### 1.2 Inspect & Validate Scenarios
+### 1.2 Evaluation Workbench Dashboard
+Launch the evaluation workbench dashboard locally to interactively inspect scenarios, execute evaluations, explore turn-by-turn trace evidence, analyze regression differentials, and audit Problem Fit:
+
+```bash
+# Launch dashboard on http://127.0.0.1:8765
+python -m voicebench.demo_app
+```
+
+The dashboard binds strictly to `127.0.0.1:8765`, requires zero external frontend dependencies, and executes genuine VoiceBench CLI commands with authentic terminal logs and visual evidence traces across 7 dedicated views:
+- **Overview:** System diagnostics, execution scope, and timing provenance taxonomy.
+- **Scenarios:** Compact matrix of the 6 canonical AI Roundtable benchmark scenarios with slide-over YAML inspection.
+- **Run Evaluations:** Multi-target runner supporting mock baseline/defects, recorded ElevenLabs traces, peer HTTP endpoints, and testing previews.
+- **Regression Lab:** Visual differential analysis highlighting the verified `SCEN-INT-02` barge-in yield regression (+1,130ms delta).
+- **Evidence Explorer:** Turn-by-turn auditable event streams with timestamps, payloads, assertions, and strict provenance tags.
+- **Adapters & Setup:** Black-box adapter contracts and integration guide for peer teams.
+- **Problem Fit:** Interactive audit mapping against all 15 core requirements from the FOSS FORGE 2.0 participant brief.
+
+#### Frontend Asset Architecture & CSS Compilation (Development Only)
+The dashboard uses pre-compiled, self-contained Tailwind CSS served locally from `voicebench/static/css/tailwind.css` with zero Node or npm runtime dependencies. At runtime, the dashboard is served strictly by Python's built-in HTTP server without external CDN calls.
+
+To rebuild or customize the stylesheet during development:
+```bash
+# Development dependency: tailwindcss (^3.4.17)
+npm run build:css
+# or with npx directly:
+npx tailwindcss -i ./voicebench/static/input.css -o ./voicebench/static/css/tailwind.css --minify
+```
+
+### 1.3 Inspect & Validate Scenarios
 ```bash
 # 1. List all available scenarios
 python -m voicebench.cli scenarios list
@@ -39,7 +67,7 @@ python -m voicebench.cli scenarios validate scenarios/roundtable
 python -m voicebench.cli scenarios validate scenarios/live/elevenlabs
 ```
 
-### 1.3 Run Scenarios Against Target Adapters
+### 1.4 Run Scenarios Against Target Adapters
 ```bash
 # 4. Run the complete 6-scenario suite against the compliant Baseline mock target
 python -m voicebench.cli run \
@@ -207,13 +235,15 @@ VoiceBench is backed by a comprehensive automated test suite verifying scenario 
 python -m pytest tests/ -v
 ```
 
-**Results:** `131 passed in ~12.4s` (100% pass rate, 0 warnings).
+**Results:** `160 passed in ~14.1s` (100% pass rate, 0 warnings).
 
 ---
 
 ## 7. Documentation Suite
 
-- **[DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md):** 3-minute reproducible judging demonstration script.
+- **[PROBLEM_STATEMENT_GAP_ANALYSIS.md](docs/PROBLEM_STATEMENT_GAP_ANALYSIS.md):** Granular mapping of all 15 FOSS FORGE 2.0 brief requirements against code and evidence.
+- **[UI_DESIGN_NOTES.md](docs/UI_DESIGN_NOTES.md):** Evaluation instrument design principles, art direction, and information architecture.
+- **[DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md):** Step-by-step reproducible judging demonstration script.
 - **[SUBMISSION_STATUS.md](docs/SUBMISSION_STATUS.md):** Submission readiness audit, verified capabilities, and honesty disclosures.
 - **[PRESENTATION.md](docs/PRESENTATION.md):** Technical presentation and architecture walkthrough.
 - **[ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md):** Target adapter contract, HTTP JSON schemas, ElevenLabs adapter guide, timing rules, and reference server.

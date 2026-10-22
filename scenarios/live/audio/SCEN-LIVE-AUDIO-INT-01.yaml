@@ -1,0 +1,32 @@
+id: SCEN-LIVE-AUDIO-INT-01
+name: Live Voice Interruption & Playback Cancellation
+description: >
+  Validates that when a human speaker interrupts an active ElevenLabs conversational
+  AI agent, the client-observed speech onset triggers a server interruption event
+  and client audio playback is cancelled within the allowed yield latency threshold.
+tags:
+  - live
+  - audio
+  - interruption
+  - elevenlabs
+timeout_seconds: 45.0
+preconditions:
+  active_agents:
+    - id: elevenlabs_agent
+      role: Conversational AI Voice Assistant
+  initial_topic: Live spoken dialogue with barge-in test
+turns:
+  - turn_index: 1
+    speaker: human_speaker
+    payload: "Tell me an extensive paragraph explaining the history of quantum computing."
+    input_type: audio
+    barge_in: false
+  - turn_index: 2
+    speaker: human_speaker
+    payload: "Wait, stop for a second, let me ask something else!"
+    input_type: audio
+    barge_in: true
+    barge_in_delay_ms: 2500.0
+expectations:
+  max_yield_latency_ms: 750.0
+  require_interruption_ack: true

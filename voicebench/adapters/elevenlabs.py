@@ -150,6 +150,38 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
         except Exception as e:
             raise RuntimeError(f"ElevenLabs connection failure: {self._redact(str(e))}")
 
+    def get_conversation_data(self, conversation_id: str) -> Dict[str, Any]:
+        """Verify and retrieve raw conversation details from GET /v1/convai/conversations/{conversation_id}."""
+        clean_id = conversation_id.strip() if conversation_id else ""
+        if not clean_id:
+            raise ValueError("Conversation ID is required to fetch conversation details.")
+        if not self._api_key:
+            raise ValueError("ElevenLabs API key is required to query ElevenLabs API.")
+
+        url = f"{self.base_url}/v1/convai/conversations/{clean_id}"
+        headers = {
+            "xi-api-key": self._api_key,
+            "User-Agent": "VoiceBench-ElevenLabs-Adapter/0.2.0",
+        }
+        req = urllib.request.Request(url, headers=headers, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data
+        except urllib.error.HTTPError as e:
+            code = e.code
+            body = self._redact(e.read().decode("utf-8", errors="replace"))
+            if code in (401, 403):
+                raise PermissionError(f"ElevenLabs authentication failed (HTTP {code}): Invalid or missing API key.")
+            elif code == 404:
+                raise ValueError(f"ElevenLabs conversation '{clean_id}' not found (HTTP 404).")
+            elif code == 429:
+                raise RuntimeError(f"ElevenLabs rate limit / quota exceeded (HTTP 429): {body}")
+            raise RuntimeError(f"ElevenLabs API HTTP {code} error: {body}")
+        except Exception as e:
+            raise RuntimeError(f"ElevenLabs connection failure: {self._redact(str(e))}")
+
     def fetch_conversation_trace(
         self,
         conversation_id: str,
@@ -208,11 +240,69 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                 )
                 return collector.to_trace()
 
+            if not isinstance(data, dict):
+                collector.record_event(
+                    event_type=EventType.TRANSPORT_ERROR,
+                    payload={"error": "MalformedResponseError: API response is not a JSON object."},
+                    is_simulated=False,
+                    event_provenance="client_observed",
+                )
+                return collector.to_trace()
+
+            # Verify returned conversation ID matches requested ID
+            returned_id = data.get("conversation_id")
+            if returned_id and returned_id != conversation_id:
+                collector.record_event(
+                    event_type=EventType.TRANSPORT_ERROR,
+                    payload={
+                        "error": (
+                            f"ConversationIdMismatchError: Returned conversation ID '{returned_id}' "
+                            f"does not match requested conversation ID '{conversation_id}'."
+                        ),
+                        "requested_id": conversation_id,
+                        "returned_id": returned_id,
+                    },
+                    is_simulated=False,
+                    event_provenance="client_observed",
+                )
+                return collector.to_trace()
+
+            # Check if conversation is still in progress / processing
+            conv_status = str(data.get("status", "done")).lower()
+            if conv_status in ("processing", "in_progress", "active"):
+                collector.record_event(
+                    event_type=EventType.TRANSPORT_ERROR,
+                    payload={
+                        "error": (
+                            f"ConversationProcessingError: Conversation '{conversation_id}' is still in "
+                            f"status '{conv_status}'. Transcript is not yet finalized."
+                        ),
+                        "status": conv_status,
+                        "conversation_id": conversation_id,
+                    },
+                    is_simulated=False,
+                    event_provenance="client_observed",
+                )
+                return collector.to_trace()
+
             # Verify 'transcript' list presence
-            if not isinstance(data, dict) or "transcript" not in data or not isinstance(data["transcript"], list):
+            if "transcript" not in data or not isinstance(data["transcript"], list):
                 collector.record_event(
                     event_type=EventType.TRANSPORT_ERROR,
                     payload={"error": "MalformedResponseError: Response missing 'transcript' list"},
+                    is_simulated=False,
+                    event_provenance="client_observed",
+                )
+                return collector.to_trace()
+
+            # Verify non-empty transcript
+            if len(data["transcript"]) == 0:
+                collector.record_event(
+                    event_type=EventType.TRANSPORT_ERROR,
+                    payload={
+                        "error": f"EmptyTranscriptError: Conversation '{conversation_id}' returned an empty transcript (0 messages).",
+                        "conversation_id": conversation_id,
+                    },
                     is_simulated=False,
                     event_provenance="client_observed",
                 )
@@ -360,11 +450,13 @@ class ElevenLabsConvAIAdapter(TargetAdapter):
                     "status": data.get("status", "done"),
                     "call_duration_secs": data.get("metadata", {}).get("call_duration_secs"),
                     "fetch_latency_ms": round(elapsed_ms, 2),
+                    "message_count": len(data.get("transcript", [])),
                 },
                 is_simulated=False,
                 event_provenance="client_observed",
                 metadata={
                     "note": "fetch_latency_ms measures client-observed HTTP GET request elapsed time, not conversational latency.",
+                    "raw_transcript": data.get("transcript", []),
                 },
             )
 

@@ -1,0 +1,47 @@
+id: SCEN-MULTI-ORCH-01
+name: Multi-Agent Roundtable Orchestration & Addressed Turn-Taking
+description: >
+  Validates sequential orchestration across distinct moderator and expert agents.
+  Enforces addressed speaker routing, context passing from previous turns, and synthesis.
+tags:
+  - multi_agent
+  - roundtable
+  - orchestration
+timeout_seconds: 30.0
+preconditions:
+  active_agents:
+    - id: moderator
+      role: Roundtable Host & Moderator
+      domain_keywords: ["welcome", "panel", "synthesize", "question"]
+    - id: expert_a
+      role: Energy Policy Analyst
+      domain_keywords: ["grid", "reliability", "storage", "renewables"]
+    - id: expert_b
+      role: Market Economist
+      domain_keywords: ["cost", "subsidies", "pricing", "tariffs"]
+  initial_topic: Renewable Grid Transition and Economic Impact
+turns:
+  - turn_index: 1
+    speaker: moderator
+    payload: "Welcome panel. Expert A, what is the primary reliability constraint in renewable grid expansion?"
+    target_expert: expert_a
+  - turn_index: 2
+    speaker: expert_a
+    payload: "The main constraint is battery duration during multi-day low-wind conditions."
+  - turn_index: 3
+    speaker: expert_b
+    payload: "I agree with Expert A on storage, but wholesale price volatility during peak hours adds significant financial risk."
+  - turn_index: 4
+    speaker: moderator
+    payload: "To synthesize both points, grid reliability requires balancing extended storage with market risk mitigation."
+expectations:
+  primary_speaker_id: moderator
+  expected_speaker_sequence:
+    - moderator
+    - expert_a
+    - expert_b
+    - moderator
+  required_keywords:
+    - constraint
+    - storage
+    - risk

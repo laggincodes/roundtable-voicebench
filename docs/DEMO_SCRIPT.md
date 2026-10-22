@@ -23,6 +23,12 @@ VoiceBench is an offline-first evaluation and regression testing framework that:
 
 ## ⏱️ Minute 0:45 – 1:30: Live Verification of the Baseline Suite
 
+> 💡 **Interactive UI Alternative:** You can also run the entire evaluation sequence visually in your browser by launching the VoiceBench Demo Dashboard:
+> ```bash
+> python -m voicebench.demo_app
+> ```
+> Open http://127.0.0.1:8765 to trigger real CLI validations, baseline execution, regression differencing, and test runs with one click.
+
 Execute the scenario validation and baseline evaluation live in your terminal:
 
 ```bash
@@ -134,4 +140,4 @@ VoiceBench adheres to strict research honesty:
 1. **No Conflated Timing:** Simulated virtual clocks (`virtual_simulation`) and provider call-relative offsets (`target_reported_call_relative`) are never conflated with client-observed wall-clock latency.
 2. **No Fabricated Audio Interruption Latency:** ElevenLabs REST conversation details provide message-level timestamps, not sub-second acoustic energy cancellation timestamps. Real-time acoustic barge-in measurement requires live bidirectional audio WebSockets.
 3. **Single-Agent Scope:** Live ElevenLabs ConvAI sessions are natively single-agent; multi-agent floor arbitration across multiple live agents is demonstrated via local fixtures.
-4. **Offline Test Coverage:** 131 automated tests pass locally in ~12 seconds with zero live API calls required.
+4. **Offline Test Coverage:** 160 automated tests pass locally in ~12 seconds with zero live API calls required.

@@ -67,10 +67,11 @@ class MockElevenLabsHandler(BaseHTTPRequestHandler):
             return
 
         if mode == "missing_transcript":
+            req_id = self.path.split("/v1/convai/conversations/")[-1].split("?")[0]
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(b'{"status": "done", "conversation_id": "conv_123"}')
+            self.wfile.write(f'{{"status": "done", "conversation_id": "{req_id or "conv_123"}"}}'.encode("utf-8"))
             return
 
         if mode == "agent_mismatch":

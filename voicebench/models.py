@@ -3,9 +3,27 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
+
+def redact_secrets(text: Optional[str]) -> str:
+    """Sanitize API keys, tokens, authorization headers, and secrets from strings."""
+    if not text:
+        return ""
+    s = str(text)
+    api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    if api_key and len(api_key) >= 4:
+        s = s.replace(api_key, "[REDACTED_ELEVENLABS_API_KEY]")
+    # Redact common credential patterns (e.g. sk_..., xi-api-key, Bearer tokens)
+    s = re.sub(r"sk_[a-zA-Z0-9_\-]{16,}", "[REDACTED_API_KEY]", s)
+    s = re.sub(r"(xi-api-key['\":\s=]+)[a-zA-Z0-9_\-]+", r"\1[REDACTED]", s, flags=re.IGNORECASE)
+    s = re.sub(r"(token=)[a-zA-Z0-9_\-\.]+", r"\1[REDACTED_TOKEN]", s)
+    s = re.sub(r"(authorization['\":\s=]+bearer\s+)[a-zA-Z0-9_\-\.]+", r"\1[REDACTED_BEARER_TOKEN]", s, flags=re.IGNORECASE)
+    return s
 
 
 class TestStatus(str, Enum):
@@ -24,6 +42,45 @@ class FailureCategory(str, Enum):
     FAIL_TOOL = "FAIL-TOOL"       # Tool Call / Fact Grounding
     FAIL_COORD = "FAIL-COORD"     # Multi-Agent Coordination / Dead Air / Collision
     FAIL_INFRA = "FAIL-INFRA"     # Transport / Timeout / Infrastructure
+    FAIL_SCHEMA = "FAIL-SCHEMA"   # Scenario Definition / YAML / Schema Validation Error
+    FAIL_ADAPTER = "FAIL-ADAPTER" # Target or Adapter Execution Error
+    FAIL_HARNESS = "FAIL-HARNESS" # Internal Test Harness Exception
+    FAIL_ASSERT = "FAIL-ASSERT"   # General Behavioral Assertion Failure
+
+
+def classify_failure_type(failure_category: Optional[str], status: TestStatus | str) -> str:
+    """Classify into one of 7 canonical high-level failure categories."""
+    status_str = status.value if isinstance(status, TestStatus) else str(status)
+    if status_str == TestStatus.NOT_RUN.value:
+        return "not_run"
+    if status_str == TestStatus.PASS.value:
+        return "pass"
+
+    cat = (failure_category or "").upper()
+    if cat == FailureCategory.FAIL_SCHEMA.value:
+        return "scenario_validation_error"
+    if cat == FailureCategory.FAIL_ADAPTER.value:
+        return "adapter_error"
+    if cat in (FailureCategory.FAIL_INFRA.value, "TRANSPORT_ERROR", "TIMEOUT"):
+        return "infrastructure_error"
+    if cat == FailureCategory.FAIL_HARNESS.value:
+        return "harness_error"
+    if status_str == TestStatus.INCONCLUSIVE.value and not cat:
+        return "inconclusive"
+    # Behavioral assertion categories
+    if cat in (
+        FailureCategory.FAIL_ROUT.value,
+        FailureCategory.FAIL_INT.value,
+        FailureCategory.FAIL_ROLE.value,
+        FailureCategory.FAIL_REC.value,
+        FailureCategory.FAIL_TOOL.value,
+        FailureCategory.FAIL_COORD.value,
+        FailureCategory.FAIL_ASSERT.value,
+    ):
+        return "assertion_failure"
+    if status_str == TestStatus.INCONCLUSIVE.value:
+        return "inconclusive"
+    return "assertion_failure"
 
 
 class EventType(str, Enum):
@@ -200,6 +257,13 @@ class ScenarioResult:
     timestamp_utc: str = ""
     software_version: str = "0.1.0"
     timing_mode: str = "virtual_simulation"
+    failures: List[Dict[str, Any]] = field(default_factory=list)
+    diagnostic_details: Optional[Dict[str, Any]] = None
+    expected_vs_actual: Optional[Dict[str, Any]] = None
+
+    @property
+    def failure_type(self) -> str:
+        return classify_failure_type(self.failure_category, self.status)
 
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -208,6 +272,7 @@ class ScenarioResult:
             "status": self.status.value if isinstance(self.status, TestStatus) else self.status,
             "reason": self.reason,
             "failure_category": self.failure_category,
+            "failure_type": self.failure_type,
             "evidence": self.evidence.to_dict() if self.evidence else None,
             "metrics": self.metrics,
             "metric_notes": self.metric_notes,
@@ -217,6 +282,9 @@ class ScenarioResult:
             "timestamp_utc": self.timestamp_utc,
             "software_version": self.software_version,
             "timing_mode": self.timing_mode,
+            "failures": self.failures,
+            "diagnostic_details": self.diagnostic_details,
+            "expected_vs_actual": self.expected_vs_actual,
         }
         return d
 

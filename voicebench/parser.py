@@ -262,8 +262,8 @@ def validate_scenario_file(file_path: str | Path) -> Tuple[bool, List[str]]:
         return False, [f"Error reading {p}: {e}"]
 
 
-def load_scenarios_from_dir(dir_path: str | Path) -> List[Scenario]:
-    """Scan a directory for .yaml and .yml files and load all valid scenarios."""
+def load_scenarios_from_dir(dir_path: str | Path, collect_errors: bool = False) -> List[Scenario]:
+    """Scan a directory for .yaml and .yml files and load all scenarios."""
     p = Path(dir_path)
     if not p.is_dir():
         raise NotADirectoryError(f"Scenarios directory not found: {p}")
@@ -271,5 +271,18 @@ def load_scenarios_from_dir(dir_path: str | Path) -> List[Scenario]:
     scenarios: List[Scenario] = []
     files = sorted(list(p.glob("*.yaml")) + list(p.glob("*.yml")))
     for f in files:
-        scenarios.append(load_scenario_from_file(f))
+        if collect_errors:
+            try:
+                scenarios.append(load_scenario_from_file(f))
+            except Exception as e:
+                stub = Scenario(
+                    id=f.stem,
+                    name=f"Invalid: {f.name}",
+                    description=f"Scenario schema validation error: {e}",
+                    source_file=str(f),
+                )
+                setattr(stub, "_validation_error", e)
+                scenarios.append(stub)
+        else:
+            scenarios.append(load_scenario_from_file(f))
     return scenarios
